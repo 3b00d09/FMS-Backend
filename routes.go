@@ -42,7 +42,8 @@ func SetupRoutes(app *fiber.App) {
 			Value:  "123456",
 			MaxAge: int(time.Now().Add(3600 * time.Hour * 24 * 7).Unix()),
 			Path:   "/",
-			Domain: "localhost",
+			Secure: true,
+			SameSite: "none",
 		}
 
 		c.Cookie(cookie)
