@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -47,6 +48,22 @@ func SetupRoutes(app *fiber.App) {
 		c.Cookie(cookie)
 		return c.JSON(fiber.Map{
 			"message": "cookie set",
+		})
+	})
+
+	app.Post("/upload-test", func(c fiber.Ctx) error{
+		file, err := c.FormFile("file")
+		if err != nil{
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "failed to get file " + err.Error(),
+			})
+		}
+
+		fileName := file.Filename
+		fileExt := filepath.Ext(fileName)
+
+		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+			"success": "file name: " + fileName + " file ext: " + fileExt,
 		})
 	})
 }
