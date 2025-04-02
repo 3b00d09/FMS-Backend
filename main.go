@@ -14,6 +14,7 @@ const port string = ":3000"
 
 func main() {
 
+	// NEED TO REDO SO THE FRONTEND KNOWS THE DATABASE IS DEAD WITHOUT KILLING ENTIRE SERVER
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -30,17 +31,7 @@ func main() {
 		log.Fatal("ENV Error: DATABASE_TOKEN not found")
 	}
 
-	dbClient, err := database.ConnectDatabase(dbURL, dbToken)
-
-	if err != nil {
-		log.Fatalf("Error connecting to database: %s \n", err.Error())
-	}
-
-	// close when main ends
-	defer dbClient.Close()
-
-	// run the schema when the database connection is established
-	database.RunSchema(dbClient)
+	database.ConnectDatabase(dbURL, dbToken)
 
 	app := fiber.New()
 	SetupRoutes(app)

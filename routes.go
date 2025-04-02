@@ -1,8 +1,8 @@
 package main
 
 import (
+	"fms/handlers"
 	"path/filepath"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -21,7 +21,10 @@ func SetupRoutes(app *fiber.App) {
 		return c.SendString("Hello world!")
 	})
 
-	app.Get("/auth-test", func(c fiber.Ctx) error {
+	app.Post("/register", handlers.HandleRegister)
+	app.Post("/login", handlers.HandleLogin)
+
+	app.Get("/auth", func(c fiber.Ctx) error {
 		cookie := c.Cookies("session_token")
 		if len(cookie) == 0 {
 			c.Status(fiber.StatusUnauthorized)
@@ -33,22 +36,6 @@ func SetupRoutes(app *fiber.App) {
 		return c.JSON(fiber.Map{
 			"message": "success",
 			"value":   cookie,
-		})
-	})
-
-	app.Get("/cookie-test", func(c fiber.Ctx) error {
-		cookie := &fiber.Cookie{
-			Name:   "session_token",
-			Value:  "123456",
-			MaxAge: int(time.Now().Add(3600 * time.Hour * 24 * 7).Unix()),
-			Path:   "/",
-			Secure: true,
-			SameSite: "none",
-		}
-
-		c.Cookie(cookie)
-		return c.JSON(fiber.Map{
-			"message": "cookie set",
 		})
 	})
 

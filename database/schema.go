@@ -1,11 +1,10 @@
 package database
 
 import (
-	"database/sql"
 	"log"
 )
 
-func RunSchema(db *sql.DB) {
+func RunSchema() {
 
 	const schema string = `
 	CREATE TABLE IF NOT EXISTS user (
@@ -17,12 +16,14 @@ func RunSchema(db *sql.DB) {
 	CREATE TABLE IF NOT EXISTS user_session (
 		id TEXT NOT NULL PRIMARY KEY,
 		user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-		active_expires INTEGER NOT NULL
+		expires_at INTEGER NOT NULL
+
 	);
 	`
 
-	_, err := db.Exec(schema)
+	_, err := dbClient.Exec(schema)
 
+	// properly handle later, dont want fatals in the app
 	if err != nil {
 		log.Fatalf("Error running schema: %s\n", err.Error())
 	}
