@@ -3,6 +3,7 @@ package handlers
 import (
 	"fms/database"
 	"fmt"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
@@ -94,6 +95,45 @@ func HandleLogin(c fiber.Ctx) error{
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"session": session,
+	})
+
+}
+
+
+func AuthRequest(c fiber.Ctx) error{
+	cookie := c.Cookies("session_token")
+	if len(cookie) == 0 {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Missing cookie",
+		})
+	}
+
+	session, err := database.GetSession(cookie);
+
+	if err != nil{
+		c.Status(fiber.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	if (session.ExpiresAt < time.Now().Unix()){
+		c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message":"cookie expired",
+		})
+	}
+
+	user, err := database.GetUser(session.UserID)
+
+	if err != nil{
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"user": user,
 	})
 
 }

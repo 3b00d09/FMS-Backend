@@ -88,3 +88,42 @@ func CreateSession(userId string) (UserSession, error){
 	}, nil
 
 }
+
+func GetSession(sessionId string)(UserSession, error){
+	var session UserSession
+
+	statement, err := dbClient.Prepare("SELECT * FROM user_session WHERE id = ?")
+	if err != nil{
+		return session, err
+	}
+	defer statement.Close()
+
+	err = statement.QueryRow(sessionId).Scan(&session.ID, &session.UserID, &session.ExpiresAt)
+
+	if err != nil{
+		return session, err
+	}
+
+	return session, nil
+	
+}
+
+func GetUser(userId string) (User, error){
+	var user User
+
+	statement, err := dbClient.Prepare("SELECT id, username FROM user WHERE id = ?")
+
+	if err != nil{
+		return user, err
+	}
+
+	defer statement.Close()
+
+	err = statement.QueryRow(userId).Scan(&user.ID, &user.Username)
+
+	if err != nil{
+		return User{}, err
+	}
+
+	return user, nil
+}

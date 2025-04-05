@@ -24,20 +24,7 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/register", handlers.HandleRegister)
 	app.Post("/login", handlers.HandleLogin)
 
-	app.Get("/auth", func(c fiber.Ctx) error {
-		cookie := c.Cookies("session_token")
-		if len(cookie) == 0 {
-			c.Status(fiber.StatusUnauthorized)
-			return c.JSON(fiber.Map{
-				"message": "Missing cookie",
-			})
-		}
-
-		return c.JSON(fiber.Map{
-			"message": "success",
-			"value":   cookie,
-		})
-	})
+	app.Get("/auth-user", handlers.AuthRequest)
 
 	app.Post("/upload-test", func(c fiber.Ctx) error{
 		file, err := c.FormFile("file")
