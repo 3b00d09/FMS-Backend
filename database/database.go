@@ -127,3 +127,20 @@ func GetUser(userId string) (User, error){
 
 	return user, nil
 }
+
+func CreateOrg(userId string, orgName string) error{
+	statement, err := dbClient.Prepare("INSERT INTO organisation (name, creator_id) VALUES (?, ?)")
+	if err != nil{
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(orgName, userId)
+
+	if err != nil{
+		return err
+	}
+
+	return nil
+	
+}

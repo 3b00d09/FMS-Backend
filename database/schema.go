@@ -19,6 +19,12 @@ func RunSchema() {
 		expires_at INTEGER NOT NULL
 
 	);
+
+	CREATE TABLE IF NOT EXISTS organisation (
+		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
+		name TEXT NOT NULL UNIQUE,
+		creator_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE
+	);
 	`
 
 	_, err := dbClient.Exec(schema)

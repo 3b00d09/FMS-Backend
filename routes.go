@@ -26,6 +26,8 @@ func SetupRoutes(app *fiber.App) {
 
 	app.Get("/auth-user", handlers.AuthRequest)
 
+	app.Post("/add-org", handlers.HandleAddOrg)
+
 	app.Post("/upload-test", func(c fiber.Ctx) error{
 		file, err := c.FormFile("file")
 		if err != nil{
