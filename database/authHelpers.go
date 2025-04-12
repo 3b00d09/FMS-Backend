@@ -54,3 +54,7 @@ func UserExists(username string, password string) (string,error) {
 	return user.id, nil
 
 }
+
+func AuthenticateSession(cookieSessionId string){
+	
+}

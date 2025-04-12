@@ -128,6 +128,34 @@ func GetUser(userId string) (User, error){
 	return user, nil
 }
 
+func GetUserWithSession(sessionId string) UserWithSession{
+	var userWithSession UserWithSession
+
+	statement, err := dbClient.Prepare(`
+		SELECT user.id, user.username, user_session.id, user_session.expires_at 
+		FROM user_session 
+		LEFT JOIN user ON user_session.user_id = user.id 
+		WHERE user_session.id = ?
+	`)
+
+	if err != nil{
+		fmt.Println(err.Error())
+		return userWithSession
+	}
+
+	defer statement.Close()
+
+	err = statement.QueryRow(sessionId).Scan(&userWithSession.User.ID, &userWithSession.User.Username, &userWithSession.Session.ID, &userWithSession.Session.ExpiresAt)
+
+	if err != nil{
+		fmt.Println(err.Error())
+		return UserWithSession{}
+	}
+
+	fmt.Println(userWithSession)
+	return userWithSession
+}
+
 func CreateOrg(userId string, orgName string) error{
 	statement, err := dbClient.Prepare("INSERT INTO organisation (name, creator_id) VALUES (?, ?)")
 	if err != nil{
@@ -143,4 +171,24 @@ func CreateOrg(userId string, orgName string) error{
 
 	return nil
 	
+}
+
+func GetUserOrg(userId string) Organisation{
+	var organisation Organisation
+
+	statement, err := dbClient.Prepare("SELECT * FROM organisation WHERE creator_id = ?")
+	if err != nil{
+		fmt.Println(err.Error())
+		return organisation
+	}
+	defer statement.Close()
+
+	err = statement.QueryRow(userId).Scan(&organisation.ID, &organisation.Name, &organisation.Creator_id)
+
+	if err != nil{
+		return Organisation{}
+	}
+
+	fmt.Println(organisation)
+	return organisation
 }

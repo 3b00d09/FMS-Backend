@@ -45,3 +45,26 @@ func HandleAddOrg(c fiber.Ctx) error{
 		"message": "Success",
 	})
 }
+
+func HandleGetOwnedOrg(c fiber.Ctx) error{
+	cookie := c.Cookies("session_token")
+	if len(cookie) == 0 {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Missing cookie",
+		})
+	}
+
+	user := database.GetUserWithSession(cookie)
+
+	if len(user.User.ID) == 0{
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	org := database.GetUserOrg(user.User.ID)
+
+	return c.JSON(fiber.Map{
+		"data": org,
+	})
+
+}

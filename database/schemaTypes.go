@@ -20,3 +20,14 @@ type UserSession struct {
 	UserID    string `db:"user_id"`
 	ExpiresAt int64  `db:"active_expires"`
 }
+
+type UserWithSession struct {
+	User    User
+	Session UserSession
+}
+
+type Organisation struct {
+	ID         string `db:"id"`
+	Name       string `db:"name"`
+	Creator_id string `db:"creator_id"`
+}
