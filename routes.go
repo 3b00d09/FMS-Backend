@@ -2,6 +2,7 @@ package main
 
 import (
 	"fms/handlers"
+	"fmt"
 	"path/filepath"
 
 	"github.com/gofiber/fiber/v3"
@@ -29,19 +30,36 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/add-org", handlers.HandleAddOrg)
 	app.Get("/owned-org", handlers.HandleGetOwnedOrg)
 
-	app.Post("/upload-test", func(c fiber.Ctx) error{
-		file, err := c.FormFile("file")
-		if err != nil{
+	app.Post("/upload-test", func(c fiber.Ctx) error {
+		form, err := c.MultipartForm()
+		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "failed to get file " + err.Error(),
+				"error": "failed to parse form: " + err.Error(),
 			})
 		}
 
-		fileName := file.Filename
-		fileExt := filepath.Ext(fileName)
+		files := form.File["files[]"]
+		if len(files) == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "no files uploaded",
+			})
+		}
 
-		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-			"success": "file name: " + fileName + " file ext: " + fileExt,
+		fileInfo := []map[string]string{}
+		for _, file := range files {
+			fileName := file.Filename
+			fileExtension := filepath.Ext(fileName)
+			fileSize := file.Size
+
+			fileInfo = append(fileInfo, map[string]string{
+				"name": fileName,
+				"type": fileExtension,
+				"size": fmt.Sprint(fileSize),
+			})
+		}
+
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"data": fileInfo,
 		})
 	})
 }

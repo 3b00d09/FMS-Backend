@@ -33,7 +33,9 @@ func main() {
 
 	database.ConnectDatabase(dbURL, dbToken)
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 50 * 1024 * 1024,
+	})
 	SetupRoutes(app)
 
 	fmt.Printf("app listening on http://localhost%s\n", port)
