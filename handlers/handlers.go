@@ -8,16 +8,16 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-func HandleAddOrg(c fiber.Ctx) error{
+func HandleAddOrg(c fiber.Ctx) error {
 	type addOrgStruct struct {
-		Name string
+		Name       string
 		Creator_id string
 	}
 
 	var addOrgData addOrgStruct
 
 	err := c.Bind().Body(&addOrgData)
-	if err != nil{
+	if err != nil {
 		fmt.Println(err.Error())
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Internal server error.",
@@ -26,16 +26,16 @@ func HandleAddOrg(c fiber.Ctx) error{
 
 	validate := validator.New()
 
-	err = validate.Struct(addOrgData);
+	err = validate.Struct(addOrgData)
 
-	if err != nil{
+	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Missing form data.",
 		})
 	}
 
 	err = database.CreateOrg(addOrgData.Creator_id, addOrgData.Name)
-	if err != nil{
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -46,7 +46,7 @@ func HandleAddOrg(c fiber.Ctx) error{
 	})
 }
 
-func HandleGetOwnedOrg(c fiber.Ctx) error{
+func HandleGetOwnedOrg(c fiber.Ctx) error {
 	cookie := c.Cookies("session_token")
 	if len(cookie) == 0 {
 		c.Status(fiber.StatusUnauthorized)
@@ -57,7 +57,7 @@ func HandleGetOwnedOrg(c fiber.Ctx) error{
 
 	user := database.GetUserWithSession(cookie)
 
-	if len(user.User.ID) == 0{
+	if len(user.User.ID) == 0 {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 

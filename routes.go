@@ -18,6 +18,21 @@ func SetupRoutes(app *fiber.App) {
 		AllowCredentials: true,
 	}))
 
+	// even though cloudflare seems to handle redirects, can never be too safe?
+	// middleware to force https
+	app.Use(func(c fiber.Ctx) error {
+		// Cloudflare sets this header for you
+		if c.Get("X-Forwarded-Proto") != "https" {
+			redirectURL := "https://" + c.Hostname() + c.OriginalURL()
+			// Build a 301 redirect and return its error
+			return c.
+				Redirect().
+				Status(fiber.StatusMovedPermanently).
+				To(redirectURL)
+		}
+		return c.Next()
+	})
+
 	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("Hello world!")
 	})

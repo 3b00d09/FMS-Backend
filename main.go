@@ -10,14 +10,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
-const port string = ":3000"
+const port string = ":8443"
 
 func main() {
 
 	// NEED TO REDO SO THE FRONTEND KNOWS THE DATABASE IS DEAD WITHOUT KILLING ENTIRE SERVER
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file" + err.Error())
 	}
 
 	// lookup env instead of loadenv to be EXTRA sure :)
@@ -39,6 +39,12 @@ func main() {
 	SetupRoutes(app)
 
 	fmt.Printf("app listening on http://localhost%s\n", port)
-	app.Listen(port)
+
+	if err := app.Listen(port, fiber.ListenConfig{
+		CertFile:    ".ssl.cert",
+		CertKeyFile: ".ssl.key",
+	}); err != nil {
+		log.Fatal(err)
+	}
 
 }
