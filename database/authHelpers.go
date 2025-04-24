@@ -25,7 +25,7 @@ func UsernameExists(username string) (bool, error) {
 	return exists, nil
 }
 
-func UserExists(username string, password string) (string,error) {
+func UserExists(username string, password string) (string, error) {
 	statement, err := dbClient.Prepare("SELECT * FROM user WHERE username = ?")
 	if err != nil {
 		return "", err
@@ -47,14 +47,10 @@ func UserExists(username string, password string) (string,error) {
 		return "", err
 	}
 
-	if(!auth.CheckPasswordHash(password, user.password)){
+	if !auth.CheckPasswordHash(password, user.password) {
 		return "", fmt.Errorf("Incorrect password.")
 	}
 
 	return user.id, nil
 
-}
-
-func AuthenticateSession(cookieSessionId string){
-	
 }

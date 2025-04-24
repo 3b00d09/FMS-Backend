@@ -25,7 +25,15 @@ func RunSchema() {
 		name TEXT NOT NULL UNIQUE,
 		creator_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE
 	);
+
 	`
+	// CREATE TABLE IF NOT EXISTS folder(
+	// 	id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	// 	org_id INTEGER NOT NULL REFERENCES organisation(id) ON DELETE CASCADE
+	// 	name TEXT NOT NULL,
+	// 	parent_folder_id INTEGER NOT NULL REFERENCES folders(id) ON DELETE CASCADE
+	// 	created_at DATE NOT NULL
+	// )
 
 	_, err := dbClient.Exec(schema)
 
