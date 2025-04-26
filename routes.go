@@ -45,6 +45,8 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/add-org", handlers.HandleAddOrg)
 	app.Get("/owned-org", handlers.HandleGetOwnedOrg)
 
+	app.Post("/add-folder", handlers.HandleCreateFolder)
+
 	app.Post("/upload-test", func(c fiber.Ctx) error {
 		form, err := c.MultipartForm()
 		if err != nil {

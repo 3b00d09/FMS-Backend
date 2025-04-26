@@ -20,7 +20,7 @@ func ConnectDatabase(dbUrl string, dbToken string) {
 	// cant use shorthand err := because dbClient will be locally scoped
 	var err error
 	dbClient, err = sql.Open("libsql", dbConnectionUrl)
-	if err != nil{
+	if err != nil {
 		log.Fatal("Error connecting to database")
 	}
 
@@ -28,16 +28,16 @@ func ConnectDatabase(dbUrl string, dbToken string) {
 	RunSchema()
 }
 
-// takes in username and password, attempts to create user, returns user id or error 
-func CreateUser(username string, password string) (string, error){
+// takes in username and password, attempts to create user, returns user id or error
+func CreateUser(username string, password string) (string, error) {
 
 	usernameExists, err := UsernameExists(username)
 
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
 
-	if usernameExists{
+	if usernameExists {
 		return "", fmt.Errorf("Username taken")
 	}
 
@@ -46,7 +46,7 @@ func CreateUser(username string, password string) (string, error){
 
 	statement, err := dbClient.Prepare("INSERT INTO user (id, username, password) VALUES (?, ?, ?)")
 
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
 
@@ -54,66 +54,65 @@ func CreateUser(username string, password string) (string, error){
 
 	_, err = statement.Exec(userId, username, hashedPassword)
 
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
 
 	return userId, nil
 }
 
-
-func CreateSession(userId string) (UserSession, error){
+func CreateSession(userId string) (UserSession, error) {
 
 	statement, err := dbClient.Prepare("INSERT INTO user_session (id, user_id, expires_at) VALUES (?, ?, ?)")
 
-	if err != nil{
+	if err != nil {
 		return UserSession{}, err
 	}
-	
+
 	defer statement.Close()
 
 	sessionId := uuid.New().String()
 	expiresAt := time.Now().Add(3600 * time.Hour * 24 * 7).Unix()
 
-	_, err = statement.Exec(sessionId, userId, expiresAt )
+	_, err = statement.Exec(sessionId, userId, expiresAt)
 
-	if err != nil{
+	if err != nil {
 		return UserSession{}, err
 	}
 
 	return UserSession{
-		ID: sessionId,
-		UserID: userId,
+		ID:        sessionId,
+		UserID:    userId,
 		ExpiresAt: expiresAt,
 	}, nil
 
 }
 
-func GetSession(sessionId string)(UserSession, error){
+func GetSession(sessionId string) (UserSession, error) {
 	var session UserSession
 
 	statement, err := dbClient.Prepare("SELECT * FROM user_session WHERE id = ?")
-	if err != nil{
+	if err != nil {
 		return session, err
 	}
 	defer statement.Close()
 
 	err = statement.QueryRow(sessionId).Scan(&session.ID, &session.UserID, &session.ExpiresAt)
 
-	if err != nil{
+	if err != nil {
 		return session, err
 	}
 
 	return session, nil
-	
+
 }
 
-func GetUser(userId string) (User, error){
+func GetUser(userId string) (User, error) {
 	var user User
 
 	statement, err := dbClient.Prepare("SELECT id, username FROM user WHERE id = ?")
 
-	if err != nil{
+	if err != nil {
 		return user, err
 	}
 
@@ -121,14 +120,14 @@ func GetUser(userId string) (User, error){
 
 	err = statement.QueryRow(userId).Scan(&user.ID, &user.Username)
 
-	if err != nil{
+	if err != nil {
 		return User{}, err
 	}
 
 	return user, nil
 }
 
-func GetUserWithSession(sessionId string) UserWithSession{
+func GetUserWithSession(sessionId string) UserWithSession {
 	var userWithSession UserWithSession
 
 	statement, err := dbClient.Prepare(`
@@ -138,7 +137,7 @@ func GetUserWithSession(sessionId string) UserWithSession{
 		WHERE user_session.id = ?
 	`)
 
-	if err != nil{
+	if err != nil {
 		fmt.Println(err.Error())
 		return userWithSession
 	}
@@ -147,37 +146,36 @@ func GetUserWithSession(sessionId string) UserWithSession{
 
 	err = statement.QueryRow(sessionId).Scan(&userWithSession.User.ID, &userWithSession.User.Username, &userWithSession.Session.ID, &userWithSession.Session.ExpiresAt)
 
-	if err != nil{
+	if err != nil {
 		fmt.Println(err.Error())
 		return UserWithSession{}
 	}
 
-	fmt.Println(userWithSession)
 	return userWithSession
 }
 
-func CreateOrg(userId string, orgName string) error{
+func CreateOrg(userId string, orgName string) error {
 	statement, err := dbClient.Prepare("INSERT INTO organisation (name, creator_id) VALUES (?, ?)")
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	defer statement.Close()
 
 	_, err = statement.Exec(orgName, userId)
 
-	if err != nil{
+	if err != nil {
 		return err
 	}
 
 	return nil
-	
+
 }
 
-func GetUserOrg(userId string) Organisation{
+func GetUserOrg(userId string) Organisation {
 	var organisation Organisation
 
 	statement, err := dbClient.Prepare("SELECT * FROM organisation WHERE creator_id = ?")
-	if err != nil{
+	if err != nil {
 		fmt.Println(err.Error())
 		return organisation
 	}
@@ -185,10 +183,25 @@ func GetUserOrg(userId string) Organisation{
 
 	err = statement.QueryRow(userId).Scan(&organisation.ID, &organisation.Name, &organisation.Creator_id)
 
-	if err != nil{
+	if err != nil {
 		return Organisation{}
 	}
 
-	fmt.Println(organisation)
 	return organisation
+}
+
+func CreateFolder(userId string, folderName string, orgId string) error {
+	statement, err := dbClient.Prepare("INSERT INTO folder (org_id, uploader_id, name) VALUES (?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(orgId, userId, folderName)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
