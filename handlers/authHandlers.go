@@ -10,11 +10,11 @@ import (
 )
 
 func HandleRegister(c fiber.Ctx) error {
-	var registerData database.UserCredentials;
+	var registerData database.UserCredentials
 
 	err := c.Bind().Body(&registerData)
 
-	if err != nil{
+	if err != nil {
 		fmt.Println(err.Error())
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Internal server error.",
@@ -23,9 +23,9 @@ func HandleRegister(c fiber.Ctx) error {
 
 	validate := validator.New()
 
-	err = validate.Struct(registerData);
+	err = validate.Struct(registerData)
 
-	if err != nil{
+	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Missing form data.",
 		})
@@ -36,7 +36,7 @@ func HandleRegister(c fiber.Ctx) error {
 	// attemps to create a user and return a session ID if successful
 	userId, err := database.CreateUser(registerData.Username, registerData.Password)
 
-	if(err != nil){
+	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": err.Error(),
 		})
@@ -44,7 +44,7 @@ func HandleRegister(c fiber.Ctx) error {
 
 	session, err := database.CreateSession(userId)
 
-		if(err != nil){
+	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": err.Error(),
 		})
@@ -55,12 +55,12 @@ func HandleRegister(c fiber.Ctx) error {
 	})
 }
 
-func HandleLogin(c fiber.Ctx) error{
-	var loginData database.UserCredentials;
+func HandleLogin(c fiber.Ctx) error {
+	var loginData database.UserCredentials
 
 	err := c.Bind().Body(&loginData)
 
-	if err != nil{
+	if err != nil {
 		fmt.Println(err.Error())
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Internal server error.",
@@ -69,17 +69,17 @@ func HandleLogin(c fiber.Ctx) error{
 
 	validate := validator.New()
 
-	err = validate.Struct(loginData);
+	err = validate.Struct(loginData)
 
-	if err != nil{
+	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Missing form data.",
 		})
 	}
-	
+
 	userId, err := database.UserExists(loginData.Username, loginData.Password)
 
-	if(err != nil){
+	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": err.Error(),
 		})
@@ -87,7 +87,7 @@ func HandleLogin(c fiber.Ctx) error{
 
 	session, err := database.CreateSession(userId)
 
-	if err != nil{
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
 		})
@@ -99,8 +99,9 @@ func HandleLogin(c fiber.Ctx) error{
 
 }
 
-
-func AuthRequest(c fiber.Ctx) error{
+// function to be called on every request
+// reads in cookies and looks for session token, if it exists then validate token, otherwise return http unauthorised
+func AuthRequest(c fiber.Ctx) error {
 	cookie := c.Cookies("session_token")
 	if len(cookie) == 0 {
 		c.Status(fiber.StatusUnauthorized)
@@ -109,31 +110,46 @@ func AuthRequest(c fiber.Ctx) error{
 		})
 	}
 
-	session, err := database.GetSession(cookie);
+	userWithSession := database.GetUserWithSession(cookie)
 
-	if err != nil{
-		c.Status(fiber.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-
-	if (session.ExpiresAt < time.Now().Unix()){
+	// if the token exists but the value is invalid we won't get a user
+	if userWithSession.User.ID == "" {
 		c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message":"cookie expired",
+			"error": "unauthorized request",
 		})
 	}
 
-	user, err := database.GetUser(session.UserID)
+	// validate session lifetime
+	if userWithSession.Session.ExpiresAt < time.Now().Unix() {
+		c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"message": "cookie expired",
+		})
+	}
 
-	if err != nil{
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"user": userWithSession.User,
+	})
+
+}
+
+func HandleLogout(c fiber.Ctx) error {
+	cookie := c.Cookies("session_token")
+	if len(cookie) == 0 {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Missing cookie",
+		})
+	}
+
+	err := database.InvalidateSession(cookie)
+
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-		"user": user,
+		"success": "true",
 	})
-
 }
