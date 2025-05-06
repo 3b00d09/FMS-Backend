@@ -31,3 +31,12 @@ type Organisation struct {
 	Name       string `db:"name"`
 	Creator_id string `db:"creator_id"`
 }
+
+type FolderData struct {
+	Id             *int64 `json:"id" db:"id"`
+	OrgId          int64  `json:"org_id" db:"org_id"`
+	Uploader       string `json:"uploader" db:"uploader"`
+	Name           string `json:"name" db:"name"`
+	ParentFolderId *int64 `json:"parent_folder_id" db:"parent_folder_id"`
+	CreatedAt      string `json:"created_at" db:"created_at"`
+}

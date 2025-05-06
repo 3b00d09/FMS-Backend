@@ -126,3 +126,26 @@ func HandleCreateFolder(c fiber.Ctx) error {
 	})
 
 }
+
+func HandleGetRootFolder(c fiber.Ctx) error {
+	cookie := c.Cookies("session_token")
+	if len(cookie) == 0 {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Missing cookie",
+		})
+	}
+
+	user := database.GetUserWithSession(cookie)
+
+	if len(user.User.ID) == 0 {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	// this should eventually verify that the user is a member of the org first
+	var rootFolder []database.FolderData = database.GetRootFolderOfOrg(c.Query("org_id"))
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"data": rootFolder,
+	})
+}
