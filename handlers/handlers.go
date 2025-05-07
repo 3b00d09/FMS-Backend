@@ -149,3 +149,24 @@ func HandleGetRootFolder(c fiber.Ctx) error {
 		"data": rootFolder,
 	})
 }
+
+func HandleViewFolderChildren(c fiber.Ctx) error {
+	cookie := c.Cookies("session_token")
+	if len(cookie) == 0 {
+		c.Status(fiber.StatusUnauthorized)
+		return c.JSON(fiber.Map{
+			"message": "Missing cookie",
+		})
+	}
+
+	user := database.GetUserWithSession(cookie)
+
+	if len(user.User.ID) == 0 {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	var folderChildren = database.GetFolderChildren(c.Query("folder_name"), c.Query("org_id"))
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"data": folderChildren,
+	})
+}

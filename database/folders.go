@@ -64,3 +64,50 @@ func GetRootFolderOfOrg(orgId string) []FolderData {
 	return folders
 
 }
+
+func GetFolderChildren(folderName string, orgId string) []FolderData {
+	var folders []FolderData
+
+	statement, err := dbClient.Prepare(`
+    	SELECT 
+        folder.id, folder.org_id, user.username, folder.name, 
+        folder.parent_folder_id, folder.created_at
+    	FROM folder 
+    	LEFT JOIN user ON user.id = folder.uploader_id
+    	WHERE parent_folder_id = (SELECT id FROM folder WHERE name = ? AND org_id = ?) AND org_id = ?
+	`)
+
+	if err != nil {
+		return folders
+	}
+
+	defer statement.Close()
+
+	rows, err := statement.Query(folderName, orgId, orgId)
+	if err != nil {
+		return folders
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var folder FolderData
+		err := rows.Scan(
+			&folder.Id,
+			&folder.OrgId,
+			&folder.Uploader,
+			&folder.Name,
+			&folder.ParentFolderId,
+			&folder.CreatedAt,
+		)
+		if err != nil {
+			continue
+		}
+		folders = append(folders, folder)
+	}
+
+	if err = rows.Err(); err != nil {
+		return folders
+	}
+
+	return folders
+}
