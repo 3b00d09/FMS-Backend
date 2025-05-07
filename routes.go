@@ -48,7 +48,6 @@ func SetupRoutes(app *fiber.App) {
 
 	app.Post("/add-folder", handlers.HandleCreateFolder)
 
-	app.Get("/view-root-folder", handlers.HandleGetRootFolder)
 	app.Get("/view-folder-children", handlers.HandleViewFolderChildren)
 
 	app.Post("/upload-test", func(c fiber.Ctx) error {

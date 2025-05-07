@@ -127,29 +127,6 @@ func HandleCreateFolder(c fiber.Ctx) error {
 
 }
 
-func HandleGetRootFolder(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
-
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
-		return c.SendStatus(fiber.StatusUnauthorized)
-	}
-
-	// this should eventually verify that the user is a member of the org first
-	var rootFolder []database.FolderData = database.GetRootFolderOfOrg(c.Query("org_id"))
-
-	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-		"data": rootFolder,
-	})
-}
-
 func HandleViewFolderChildren(c fiber.Ctx) error {
 	cookie := c.Cookies("session_token")
 	if len(cookie) == 0 {
@@ -165,7 +142,23 @@ func HandleViewFolderChildren(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	var folderChildren = database.GetFolderChildren(c.Query("folder_name"), c.Query("org_id"))
+	folderName := c.Query("folder_name")
+	orgId := c.Query("org_id")
+
+	if len(folderName) == 0 || len(orgId) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing URL data",
+		})
+	}
+
+	var folderChildren []database.FolderData
+
+	if folderName == "root" {
+		folderChildren = database.GetRootFolderOfOrg(c.Query("org_id"))
+	} else {
+		folderChildren = database.GetFolderChildren(folderName, orgId)
+	}
+
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"data": folderChildren,
 	})
