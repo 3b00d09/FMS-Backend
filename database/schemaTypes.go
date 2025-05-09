@@ -40,3 +40,14 @@ type FolderData struct {
 	ParentFolderId *int64 `json:"parent_folder_id" db:"parent_folder_id"`
 	CreatedAt      string `json:"created_at" db:"created_at"`
 }
+
+type FileData struct {
+	Id             *int64 `json:"id" db:"id"`
+	OrgId          int64  `json:"org_id" db:"org_id"`
+	Uploader       string `json:"uploader" db:"uploader_id"`
+	Name           string `json:"name" db:"name"`
+	ParentFolderId *int64 `json:"parent_folder_id" db:"parent_folder_id"`
+	CreatedAt      string `json:"created_at" db:"created_at"`
+	Type           string `json:"type" db:"type"`
+	Size           int64  `json:"size" db:"size"`
+}

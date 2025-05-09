@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fms/database"
 	"fms/handlers"
 	"fmt"
 	"path/filepath"
@@ -51,6 +52,20 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/view-folder-children", handlers.HandleViewFolderChildren)
 
 	app.Post("/upload-test", func(c fiber.Ctx) error {
+		cookie := c.Cookies("session_token")
+		if len(cookie) == 0 {
+			c.Status(fiber.StatusUnauthorized)
+			return c.JSON(fiber.Map{
+				"message": "Missing cookie",
+			})
+		}
+
+		user := database.GetUserWithSession(cookie)
+
+		if len(user.User.ID) == 0 {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+
 		form, err := c.MultipartForm()
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -59,10 +74,18 @@ func SetupRoutes(app *fiber.App) {
 		}
 
 		files := form.File["files[]"]
-		if len(files) == 0 {
+		orgId := form.Value["orgId"]
+		parentFolderName := form.Value["parentFolderName"]
+		if len(files) == 0 || len(orgId) == 0 || len(parentFolderName) == 0 {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "no files uploaded",
+				"error": "Missing Form Data.",
 			})
+		}
+
+		if parentFolderName[0] == "root" {
+			database.UploadFileToRoot(files[0], orgId[0], user.User.ID)
+		} else {
+			database.UploadFileToFolder(files[0], orgId[0], parentFolderName[0], user.User.ID)
 		}
 
 		fileInfo := []map[string]string{}
@@ -79,7 +102,9 @@ func SetupRoutes(app *fiber.App) {
 		}
 
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"data": fileInfo,
+			"data":   fileInfo,
+			"folder": parentFolderName,
+			"org":    orgId,
 		})
 	})
 }

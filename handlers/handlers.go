@@ -96,6 +96,14 @@ func HandleCreateFolder(c fiber.Ctx) error {
 		})
 	}
 
+	parentFolderName := c.Query("parent-folder")
+
+	if len(parentFolderName) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"message": "Missing parent folder name.",
+		})
+	}
+
 	cookie := c.Cookies("session_token")
 	if len(cookie) == 0 {
 		c.Status(fiber.StatusUnauthorized)
@@ -112,13 +120,20 @@ func HandleCreateFolder(c fiber.Ctx) error {
 
 	// need to do permissions later
 
-	fmt.Println(user.User.ID, addFolderData.Name, addFolderData.Org_id)
-	err = database.CreateFolder(user.User.ID, addFolderData.Name, addFolderData.Org_id)
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if parentFolderName == "root" {
+		err = database.CreateFolder(user.User.ID, addFolderData.Name, addFolderData.Org_id)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+	} else {
+		err = database.CreateFolderAsChild(user.User.ID, addFolderData.Name, addFolderData.Org_id, parentFolderName)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
@@ -152,14 +167,18 @@ func HandleViewFolderChildren(c fiber.Ctx) error {
 	}
 
 	var folderChildren []database.FolderData
+	var fileChildren []database.FileData
 
 	if folderName == "root" {
-		folderChildren = database.GetRootFolderOfOrg(c.Query("org_id"))
+		folderChildren = database.GetRootFolderOfOrg(orgId)
+		fileChildren = database.GetRootFilesOfOrg(orgId)
 	} else {
 		folderChildren = database.GetFolderChildren(folderName, orgId)
+		fileChildren = database.GetFolderFiles(folderName, orgId)
 	}
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-		"data": folderChildren,
+		"folders": folderChildren,
+		"files":   fileChildren,
 	})
 }

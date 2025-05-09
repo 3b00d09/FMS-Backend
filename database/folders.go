@@ -1,5 +1,7 @@
 package database
 
+import "fmt"
+
 func CreateFolder(userId string, folderName string, orgId string) error {
 	statement, err := dbClient.Prepare("INSERT INTO folder (org_id, uploader_id, name) VALUES (?, ?, ?)")
 	if err != nil {
@@ -16,6 +18,25 @@ func CreateFolder(userId string, folderName string, orgId string) error {
 	return nil
 }
 
+func CreateFolderAsChild(userId string, folderName string, orgId string, parentFolderName string) error {
+	statement, err := dbClient.Prepare(`
+		INSERT INTO folder (org_id, uploader_id, name, parent_folder_id) 
+		VALUES (?, ?, ?,(SELECT id FROM folder WHERE name = ? AND org_id = ?))
+		`)
+
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+
+	defer statement.Close()
+
+	_, err = statement.Exec(orgId, userId, folderName, parentFolderName, orgId)
+	if err != nil {
+		fmt.Print(err.Error())
+	}
+	return nil
+}
+
 func GetRootFolderOfOrg(orgId string) []FolderData {
 
 	var folders []FolderData
@@ -27,6 +48,7 @@ func GetRootFolderOfOrg(orgId string) []FolderData {
     	FROM folder 
     	LEFT JOIN user ON user.id = folder.uploader_id
     	WHERE org_id = ? AND parent_folder_id IS NULL
+		ORDER BY created_at DESC
 	`)
 
 	if err != nil {
@@ -75,6 +97,7 @@ func GetFolderChildren(folderName string, orgId string) []FolderData {
     	FROM folder 
     	LEFT JOIN user ON user.id = folder.uploader_id
     	WHERE parent_folder_id = (SELECT id FROM folder WHERE name = ? AND org_id = ?) AND org_id = ?
+		ORDER BY created_at DESC
 	`)
 
 	if err != nil {
