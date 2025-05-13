@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-playground/locales/en"
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
+	en_translations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -68,13 +71,28 @@ func HandleLogin(c fiber.Ctx) error {
 	}
 
 	validate := validator.New()
+	// build an English translator
+	enLocale := en.New()
+	uni := ut.New(enLocale, enLocale)
+	trans, _ := uni.GetTranslator("en")
+
+	// register the built‐in English translations for tags like "required", "email", etc.
+	en_translations.RegisterDefaultTranslations(validate, trans)
 
 	err = validate.Struct(loginData)
 
 	if err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Missing form data.",
-		})
+		errs := err.(validator.ValidationErrors)
+
+		// this gives you a map[fieldName]translatedMessage
+		translated := errs.Translate(trans)
+
+		return c.
+			Status(fiber.StatusBadRequest).
+			JSON(fiber.Map{
+				"message": "Missing form data",
+				"errors":  translated,
+			})
 	}
 
 	userId, err := database.UserExists(loginData.Username, loginData.Password)
