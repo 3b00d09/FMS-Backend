@@ -57,3 +57,37 @@ func GetUserOrg(userId string) Organisation {
 
 	return organisation
 }
+
+func InviteUserToOrg(username string, ownerId string) error {
+
+	statement, err := dbClient.Prepare(`
+		INSERT INTO org_invites (org_id, user_id) 
+		SELECT organisation.id, user.id 
+		FROM organisation, user  
+		WHERE organisation.creator_id = ? AND user.username = ?
+	`)
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(ownerId, username)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("Operation failed. Please try again later.")
+	}
+
+	return nil
+}

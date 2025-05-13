@@ -14,7 +14,7 @@ func SetupRoutes(app *fiber.App) {
 
 	app.Use(cors.New(cors.Config{
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Content-Length", "Accept-Language", "Accept-Encoding", "Connection", "Access-Control-Allow-Origin"},
-		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowOrigins:     []string{"http://localhost:5173", "https://fmsatiya.live"},
 		AllowMethods:     []string{"GET", "POST", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowCredentials: true,
 	}))
@@ -48,8 +48,10 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/owned-org", handlers.HandleGetOwnedOrg)
 
 	app.Post("/add-folder", handlers.HandleCreateFolder)
-
 	app.Get("/view-folder-children", handlers.HandleViewFolderChildren)
+
+	app.Get("/users", handlers.HandleSearchUsers)
+	app.Get("/invite-user", handlers.HandleInviteUser)
 
 	app.Post("/upload-test", func(c fiber.Ctx) error {
 		cookie := c.Cookies("session_token")
