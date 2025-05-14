@@ -23,27 +23,28 @@ type UserWithSession struct {
 }
 
 type Organisation struct {
-	ID         string
-	Name       string
-	Creator_id string
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Creator_id   string `json:"creatorId"`
+	Storage_used int    `json:"storageUsed"`
 }
 
 type FolderData struct {
 	Id             *int64 `json:"id"`
-	OrgId          int64  `json:"org_id"`
+	OrgId          int64  `json:"orgId"`
 	Uploader       string `json:"uploader"`
 	Name           string `json:"name"`
-	ParentFolderId *int64 `json:"parent_folder_id" `
-	CreatedAt      string `json:"created_at"`
+	ParentFolderId *int64 `json:"parentFolderId" `
+	CreatedAt      string `json:"createdAt"`
 }
 
 type FileData struct {
 	Id             *int64 `json:"id"`
-	OrgId          int64  `json:"org_id"`
+	OrgId          int64  `json:"orgId"`
 	Uploader       string `json:"uploader"`
 	Name           string `json:"name"`
-	ParentFolderId *int64 `json:"parent_folder_id"`
-	CreatedAt      string `json:"created_at"`
+	ParentFolderId *int64 `json:"parentFolderId"`
+	CreatedAt      string `json:"createdAt"`
 	Type           string `json:"type"`
 	Size           int64  `json:"size"`
 }

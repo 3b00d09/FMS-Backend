@@ -22,14 +22,14 @@ func CreateOrg(userId string, orgName string) error {
 func GetOrgById(orgId string) Organisation {
 	var organisation Organisation
 
-	statement, err := dbClient.Prepare("SELECT * FROM organisation WHERE id = ?")
+	statement, err := dbClient.Prepare("SELECT id, name, creator_id FROM organisation WHERE id = ?")
 	if err != nil {
 		fmt.Println(err.Error())
 		return organisation
 	}
 	defer statement.Close()
 
-	err = statement.QueryRow(orgId).Scan(&organisation.ID, &organisation.Name, &organisation.Creator_id)
+	err = statement.QueryRow(orgId, orgId).Scan(&organisation.ID, &organisation.Name, &organisation.Creator_id)
 
 	if err != nil {
 		return Organisation{}
@@ -42,7 +42,7 @@ func GetOrgById(orgId string) Organisation {
 func GetUserOrg(userId string) Organisation {
 	var organisation Organisation
 
-	statement, err := dbClient.Prepare("SELECT * FROM organisation WHERE creator_id = ?")
+	statement, err := dbClient.Prepare("SELECT id, name, creator_id FROM organisation WHERE creator_id = ?")
 	if err != nil {
 		fmt.Println(err.Error())
 		return organisation
@@ -53,6 +53,19 @@ func GetUserOrg(userId string) Organisation {
 
 	if err != nil {
 		return Organisation{}
+	}
+
+	statement2, err := dbClient.Prepare("SELECT SUM(size) FROM file WHERE org_id = ?")
+	if err != nil {
+		return organisation
+	}
+
+	defer statement2.Close()
+
+	err = statement2.QueryRow(organisation.ID).Scan(&organisation.Storage_used)
+
+	if err != nil {
+		return organisation
 	}
 
 	return organisation

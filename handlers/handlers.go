@@ -63,8 +63,8 @@ func HandleGetOwnedOrg(c fiber.Ctx) error {
 
 	org := database.GetUserOrg(user.User.ID)
 
-	return c.JSON(fiber.Map{
-		"data": org,
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"org": org,
 	})
 
 }
