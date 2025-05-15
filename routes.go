@@ -52,6 +52,10 @@ func SetupRoutes(app *fiber.App) {
 
 	app.Get("/users", handlers.HandleSearchUsers)
 	app.Get("/invite-user", handlers.HandleInviteUser)
+	app.Get("/user-invites", handlers.HandleGetUserInvites)
+	app.Get("/accept-invite", handlers.HandleAcceptInvite)
+	app.Get("/decline-invite", handlers.HandleDeclineInvite)
+	app.Get("/view-org-members", handlers.HandleViewOrgMembers)
 
 	app.Post("/upload-test", func(c fiber.Ctx) error {
 		cookie := c.Cookies("session_token")

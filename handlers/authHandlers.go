@@ -18,9 +18,8 @@ func HandleRegister(c fiber.Ctx) error {
 	err := c.Bind().Body(&registerData)
 
 	if err != nil {
-		fmt.Println(err.Error())
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Internal server error.",
+			"error": "Internal server error.",
 		})
 	}
 
@@ -30,18 +29,16 @@ func HandleRegister(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Missing form data.",
+			"error": "Missing form data.",
 		})
 	}
-
-	fmt.Println(registerData.Password, registerData.Username)
 
 	// attemps to create a user and return a session ID if successful
 	userId, err := database.CreateUser(registerData.Username, registerData.Password)
 
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -49,7 +46,7 @@ func HandleRegister(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -66,7 +63,7 @@ func HandleLogin(c fiber.Ctx) error {
 	if err != nil {
 		fmt.Println(err.Error())
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Internal server error.",
+			"error": "Internal server error.",
 		})
 	}
 
@@ -84,14 +81,14 @@ func HandleLogin(c fiber.Ctx) error {
 	if err != nil {
 		errs := err.(validator.ValidationErrors)
 
-		// this gives you a map[fieldName]translatedMessage
+		// this gives you a map[fieldName]translatederror
 		translated := errs.Translate(trans)
 
 		return c.
 			Status(fiber.StatusBadRequest).
 			JSON(fiber.Map{
-				"message": "Missing form data",
-				"errors":  translated,
+				"error":  "Missing form data",
+				"errors": translated,
 			})
 	}
 
@@ -99,7 +96,7 @@ func HandleLogin(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -107,7 +104,7 @@ func HandleLogin(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
@@ -124,7 +121,7 @@ func AuthRequest(c fiber.Ctx) error {
 	if len(cookie) == 0 {
 		c.Status(fiber.StatusUnauthorized)
 		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
+			"error": "Missing cookie",
 		})
 	}
 
@@ -140,7 +137,7 @@ func AuthRequest(c fiber.Ctx) error {
 	// validate session lifetime
 	if userWithSession.Session.ExpiresAt < time.Now().Unix() {
 		c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "cookie expired",
+			"error": "cookie expired",
 		})
 	}
 
@@ -155,7 +152,7 @@ func HandleLogout(c fiber.Ctx) error {
 	if len(cookie) == 0 {
 		c.Status(fiber.StatusUnauthorized)
 		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
+			"error": "Missing cookie",
 		})
 	}
 

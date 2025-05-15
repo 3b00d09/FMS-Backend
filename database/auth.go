@@ -19,7 +19,7 @@ func CreateUser(username string, password string) (string, error) {
 	}
 
 	if usernameExists {
-		return "", fmt.Errorf("Username taken")
+		return "", fmt.Errorf("username taken")
 	}
 
 	hashedPassword := auth.GenerateHashedPassword(password)
@@ -105,13 +105,13 @@ func UserExists(username string, password string) (string, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("User does not exist")
+			return "", fmt.Errorf("invalid username")
 		}
 		return "", err
 	}
 
 	if !auth.CheckPasswordHash(password, user.password) {
-		return "", fmt.Errorf("Incorrect password.")
+		return "", fmt.Errorf("incorrect password")
 	}
 
 	return user.id, nil

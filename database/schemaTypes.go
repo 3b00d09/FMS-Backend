@@ -27,6 +27,13 @@ type Organisation struct {
 	Name         string `json:"name"`
 	Creator_id   string `json:"creatorId"`
 	Storage_used int    `json:"storageUsed"`
+	MemberCount  int    `json:"memberCount"`
+}
+
+type OrganisationMembers struct {
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	JoinedAt string `json:"joinedAt"`
 }
 
 type FolderData struct {
@@ -47,4 +54,12 @@ type FileData struct {
 	CreatedAt      string `json:"createdAt"`
 	Type           string `json:"type"`
 	Size           int64  `json:"size"`
+}
+
+type OrgInvite struct {
+	Id        *int64 `json:"id"`
+	OrgId     int64  `json:"orgId"`
+	OrgOwner  string `json:"orgOwner"`
+	OrgName   string `json:"orgName"`
+	InvitedAt string `json:"invitedAt"`
 }

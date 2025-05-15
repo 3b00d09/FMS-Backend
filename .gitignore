@@ -60,3 +60,5 @@ config.toml
 
 # Cache directories
 .cache/
+
+.ssl*
