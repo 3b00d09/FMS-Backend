@@ -1,6 +1,29 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
+
+func AuthenticateCookie(cookie string) (*UserWithSession, error) {
+	if len(cookie) == 0 {
+		return nil, fmt.Errorf("cookie value is missing")
+	}
+
+	userWithSession := GetUserWithSession(cookie)
+
+	// if the token exists but the value is invalid we won't get a user
+	if userWithSession.User.ID == "" {
+		return nil, fmt.Errorf("cookie value is invalid")
+	}
+
+	// validate session lifetime
+	if userWithSession.Session.ExpiresAt < time.Now().Unix() {
+		return nil, fmt.Errorf("cookie expired")
+	}
+
+	return &userWithSession, nil
+}
 
 func SearchUsers(username string, userId string) ([]string, error) {
 	var users []string

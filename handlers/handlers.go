@@ -7,17 +7,10 @@ import (
 )
 
 func HandleSearchUsers(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
+	// authenticate the request
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
+	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
@@ -27,7 +20,7 @@ func HandleSearchUsers(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnprocessableEntity)
 	}
 
-	result, err := database.SearchUsers(searchInput, user.User.ID)
+	result, err := database.SearchUsers(searchInput, userWithSession.User.ID)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -42,17 +35,10 @@ func HandleSearchUsers(c fiber.Ctx) error {
 }
 
 func HandleInviteUser(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
+	// authenticate the request
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
+	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
@@ -62,7 +48,7 @@ func HandleInviteUser(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnprocessableEntity)
 	}
 
-	err := database.InviteUserToOrg(username, user.User.ID)
+	err = database.InviteUserToOrg(username, userWithSession.User.ID)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -74,21 +60,14 @@ func HandleInviteUser(c fiber.Ctx) error {
 }
 
 func HandleGetUserInvites(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
+	// authenticate the request
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
+	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	invites, err := database.GetUserInvites(user.User.ID)
+	invites, err := database.GetUserInvites(userWithSession.User.ID)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -102,17 +81,10 @@ func HandleGetUserInvites(c fiber.Ctx) error {
 }
 
 func HandleAcceptInvite(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
+	// authenticate the request
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
+	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
@@ -124,7 +96,7 @@ func HandleAcceptInvite(c fiber.Ctx) error {
 		})
 	}
 
-	err := database.AcceptOrgInvite(user.User.ID, orgId)
+	err = database.AcceptOrgInvite(userWithSession.User.ID, orgId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -135,17 +107,10 @@ func HandleAcceptInvite(c fiber.Ctx) error {
 }
 
 func HandleDeclineInvite(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
+	// authenticate the request
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
+	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
@@ -157,7 +122,7 @@ func HandleDeclineInvite(c fiber.Ctx) error {
 		})
 	}
 
-	err := database.DeclineOrgInvite(user.User.ID, orgId)
+	err = database.DeclineOrgInvite(userWithSession.User.ID, orgId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

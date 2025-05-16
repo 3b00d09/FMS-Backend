@@ -30,6 +30,13 @@ type Organisation struct {
 	MemberCount  int    `json:"memberCount"`
 }
 
+type JoinedOrganisation struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	CreatorName string `json:"creatorName"`
+	Role        string `json:"role"`
+}
+
 type OrganisationMembers struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`

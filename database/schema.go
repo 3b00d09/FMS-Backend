@@ -42,7 +42,7 @@ func RunSchema() {
 		status TEXT NOT NULL DEFAULT 'pending',
 		invited_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(org_id, user_id)
-	);
+	); 
 
 	CREATE TABLE IF NOT EXISTS folder(
 		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

@@ -20,7 +20,7 @@ func main() {
 		log.Fatal("Error loading .env file" + err.Error())
 	}
 
-	// lookup env instead of loadenv to be EXTRA sure :)
+	// lookup env instead of loadenv to be EXTRA sure
 	dbURL, exists := os.LookupEnv("DATABASE_URL")
 	if !exists {
 		log.Fatal("ENV Error: DATABASE_URL not found")
@@ -33,13 +33,17 @@ func main() {
 
 	database.ConnectDatabase(dbURL, dbToken)
 
+	// create a fiber app
 	app := fiber.New(fiber.Config{
 		BodyLimit: 50 * 1024 * 1024,
 	})
+
+	// setup the endpoints for the app
 	SetupRoutes(app)
 
 	fmt.Printf("app listening on http://localhost%s\n", port)
 
+	// necessary stuff for cloudflared tunnel
 	if err := app.Listen(port, fiber.ListenConfig{
 		CertFile:    ".ssl.cert",
 		CertKeyFile: ".ssl.key",

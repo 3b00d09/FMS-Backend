@@ -163,11 +163,11 @@ func GetUserWithSession(sessionId string) UserWithSession {
 	return userWithSession
 }
 
-func InvalidateSession(sessionId string) error {
+func InvalidateSession(sessionId string) {
 	statement, err := dbClient.Prepare("DELETE FROM user_session WHERE user_session.id = ?")
 
 	if err != nil {
-		return err
+		fmt.Println(err)
 	}
 
 	defer statement.Close()
@@ -175,8 +175,6 @@ func InvalidateSession(sessionId string) error {
 	_, err = statement.Exec(sessionId)
 
 	if err != nil {
-		return err
+		fmt.Println(err)
 	}
-
-	return nil
 }

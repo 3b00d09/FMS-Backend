@@ -2,89 +2,116 @@ package handlers
 
 import (
 	"fms/database"
-	"fmt"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 )
 
 func HandleAddOrg(c fiber.Ctx) error {
+
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	// variable to hold the data submitted
 	type addOrgStruct struct {
-		Name       string
-		Creator_id string
+		Name string
 	}
 
 	var addOrgData addOrgStruct
 
-	err := c.Bind().Body(&addOrgData)
+	// attempt to parse request body
+	err = c.Bind().Body(&addOrgData)
+	// if the server is unable to read the body, it returns a HTTP code 401
 	if err != nil {
-		fmt.Println(err.Error())
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Internal server error.",
-		})
+		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
+	// validate that even if the body has data, it matches what the server expects
 	validate := validator.New()
 
 	err = validate.Struct(addOrgData)
 
+	// if the data doesn't match what the server expects
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	// attempt to create org in the database
+	// the create org func checks for the constraint that ensures only 1 org can be created by a user
+	err = database.CreateOrg(userWithSession.User.ID, addOrgData.Name)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Missing form data.",
+			"error": err.Error(),
 		})
 	}
 
-	err = database.CreateOrg(addOrgData.Creator_id, addOrgData.Name)
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func HandleGetOwnedOrg(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	org := database.GetUserOrg(userWithSession.User.ID)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"org": org,
+	})
+
+}
+
+func HandleViewOrg(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	orgId := c.Query("org_id")
+
+	if len(orgId) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": "Missing URL params.",
+		})
+	}
+
+	canView, role, err := database.CanViewOrg(userWithSession.User.ID, orgId)
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "Success",
-	})
-}
-
-func HandleGetOwnedOrg(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
+	if !canView {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized request. Access Denied.",
 		})
 	}
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
-		return c.SendStatus(fiber.StatusUnauthorized)
-	}
-
-	org := database.GetUserOrg(user.User.ID)
+	org := database.GetOrgById(orgId)
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
-		"org": org,
+		"org":  org,
+		"role": role,
 	})
 
 }
 
 func HandleViewOrgMembers(c fiber.Ctx) error {
-	cookie := c.Cookies("session_token")
-	if len(cookie) == 0 {
-		c.Status(fiber.StatusUnauthorized)
-		return c.JSON(fiber.Map{
-			"message": "Missing cookie",
-		})
-	}
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
-	user := database.GetUserWithSession(cookie)
-
-	if len(user.User.ID) == 0 {
+	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	ownedOrg := database.GetUserOrg(user.User.ID)
+	ownedOrg := database.GetUserOrg(userWithSession.User.ID)
 
 	if len(ownedOrg.ID) == 0 {
 		return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
@@ -105,4 +132,24 @@ func HandleViewOrgMembers(c fiber.Ctx) error {
 		"members": members,
 	})
 
+}
+
+func HandleViewUserOrgs(c fiber.Ctx) error {
+	// authenticate the request
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	// fetch the user's created org and joined orgs
+	// data that doesn't exist will return nil (null)
+
+	ownedOrg := database.GetUserOrg(userWithSession.User.ID)
+	joinedOrgs := database.GetJoinedOrgs(userWithSession.User.ID)
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"joinedOrgs": joinedOrgs,
+		"ownedOrg":   ownedOrg,
+	})
 }
