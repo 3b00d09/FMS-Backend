@@ -213,8 +213,7 @@ func AddMemberToOrg(userId string, orgId string) error {
 	return nil
 }
 
-func GetOrgMembers(orgId string) ([]OrganisationMembers, error) {
-	var organisationMembers []OrganisationMembers
+func GetOrgMembers(orgId string) []*OrganisationMembers {
 	statement, err := dbClient.Prepare(`
 		SELECT user.username, org_members.role, org_members.joined_at 
 		FROM org_members 
@@ -223,15 +222,17 @@ func GetOrgMembers(orgId string) ([]OrganisationMembers, error) {
 	`)
 
 	if err != nil {
-		return organisationMembers, err
+		return nil
 	}
+
+	var organisationMembers []*OrganisationMembers
 
 	defer statement.Close()
 
 	rows, err := statement.Query(orgId)
 
 	if err != nil {
-		return organisationMembers, err
+		return nil
 	}
 
 	for rows.Next() {
@@ -240,10 +241,16 @@ func GetOrgMembers(orgId string) ([]OrganisationMembers, error) {
 		if err != nil {
 			continue
 		}
-		organisationMembers = append(organisationMembers, member)
+		organisationMembers = append(organisationMembers, &member)
 	}
 
-	return organisationMembers, nil
+	err = rows.Err()
+
+	if err != nil {
+		return nil
+	}
+
+	return organisationMembers
 
 }
 
@@ -279,4 +286,31 @@ func GetJoinedOrgs(userId string) []*JoinedOrganisation {
 	}
 
 	return organisations
+}
+
+func ChangeOrgName(orgId string, orgName string) error {
+	statement, err := dbClient.Prepare("UPDATE organisation SET name = ? WHERE id = ?")
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(orgName, orgId)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("unable to update name. please try again later")
+	}
+
+	return nil
 }

@@ -44,11 +44,11 @@ func SetupRoutes(app *fiber.App) {
 
 	// org-related routes
 	app.Post("/add-org", handlers.HandleAddOrg)
-	// currently unused
-	app.Get("/owned-org", handlers.HandleGetOwnedOrg)
+	app.Get("/owned-org", handlers.HandleGetOwnedOrgDetails)
 	app.Get("view-org", handlers.HandleViewOrg)
 	app.Get("/view-org-members", handlers.HandleViewOrgMembers)
 	app.Get("/invite-user", handlers.HandleInviteUser)
+	app.Put("/change-org-name", handlers.HandleChangeOrgName)
 
 	// folder-related routes
 	app.Get("/view-folder-children", handlers.HandleViewFolderChildren)

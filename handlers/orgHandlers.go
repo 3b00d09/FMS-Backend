@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fms/database"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
@@ -51,17 +52,78 @@ func HandleAddOrg(c fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusOK)
 }
 
-func HandleGetOwnedOrg(c fiber.Ctx) error {
+func HandleChangeOrgName(c fiber.Ctx) error {
 	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
 
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	org := database.GetUserOrg(userWithSession.User.ID)
+	orgId := c.Query("org_id")
+	orgName := c.Query("org_name")
 
+	if len(orgId) == 0 || len(orgName) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": "Missing URL params.",
+		})
+	}
+
+	canView, role, err := database.CanViewOrg(userWithSession.User.ID, orgId)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if strings.ToLower(role) != "owner" || !canView {
+		return c.SendStatus(fiber.StatusForbidden)
+	}
+
+	err = database.ChangeOrgName(orgId, orgName)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+
+}
+
+func HandleGetOwnedOrgDetails(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	orgId := c.Query("org_id")
+
+	if len(orgId) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": "Missing URL params.",
+		})
+	}
+
+	canView, role, err := database.CanViewOrg(userWithSession.User.ID, orgId)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	if strings.ToLower(role) != "owner" || !canView {
+		return c.SendStatus(fiber.StatusForbidden)
+	}
+
+	org := database.GetOrgById(orgId)
+	members := database.GetOrgMembers(orgId)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"org": org,
+		"org":     org,
+		"members": members,
 	})
 
 }
@@ -119,14 +181,7 @@ func HandleViewOrgMembers(c fiber.Ctx) error {
 		})
 	}
 
-	members, err := database.GetOrgMembers(ownedOrg.ID)
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err,
-			"org":   nil,
-		})
-	}
+	members := database.GetOrgMembers(ownedOrg.ID)
 
 	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
 		"members": members,
