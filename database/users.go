@@ -27,7 +27,27 @@ func AuthenticateCookie(cookie string) (*UserWithSession, error) {
 
 func SearchUsers(username string, userId string) ([]string, error) {
 	var users []string
-	statement, err := dbClient.Prepare("SELECT username FROM user WHERE username LIKE ? COLLATE NOCASE AND id != ?")
+	// this function searches for users who are not equal to the user who is searching
+	// and are not members of the user who is searching's organisation
+	// and have not been invited already by the organisation that the user created
+	statement, err := dbClient.Prepare(`
+		SELECT u.username 
+		FROM user u
+		WHERE u.username LIKE ? COLLATE NOCASE 
+		AND u.id != ?
+		AND u.id NOT IN (
+			SELECT om.user_id 
+			FROM org_members om
+			JOIN organisation o ON om.org_id = o.id
+			WHERE o.creator_id = ?
+		)
+		AND u.id NOT IN (
+			SELECT oi.user_id
+			FROM org_invites oi
+			JOIN organisation o ON oi.org_id = o.id
+			WHERE o.creator_id = ?
+		)
+	`)
 	if err != nil {
 		return users, err
 	}
@@ -35,7 +55,7 @@ func SearchUsers(username string, userId string) ([]string, error) {
 	defer statement.Close()
 
 	queryString := fmt.Sprint(username, "%")
-	rows, err := statement.Query(queryString, userId)
+	rows, err := statement.Query(queryString, userId, userId, userId)
 
 	if err != nil {
 		return users, err

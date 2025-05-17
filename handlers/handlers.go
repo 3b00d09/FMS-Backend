@@ -48,6 +48,7 @@ func HandleInviteUser(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusUnprocessableEntity)
 	}
 
+	// no need to permission check on this function because it passes in the requesting user's id so the invite will automatically go to their org
 	err = database.InviteUserToOrg(username, userWithSession.User.ID)
 
 	if err != nil {
@@ -56,7 +57,7 @@ func HandleInviteUser(c fiber.Ctx) error {
 		})
 	}
 
-	return c.SendStatus(fiber.StatusAccepted)
+	return c.SendStatus(fiber.StatusOK)
 }
 
 func HandleGetUserInvites(c fiber.Ctx) error {
