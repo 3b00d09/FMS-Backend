@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"mime/multipart"
 	"path/filepath"
+	"strings"
 )
 
-func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId string) {
+func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId string) error {
+	fileExists, err := FileExists(file.Filename, nil, nil)
+	if err != nil {
+		return err
+	}
+	if fileExists {
+		return fmt.Errorf("file name already exists in this location")
+	}
+
 	statement, err := dbClient.Prepare(`
 	 	INSERT INTO file (org_id, uploader_id, name, type, size)
 		VALUES (?, ?, ?, ?, ?)
@@ -20,11 +29,24 @@ func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId strin
 
 	_, err = statement.Exec(orgId, uploaderId, file.Filename, filepath.Ext(file.Filename), file.Size)
 	if err != nil {
-		fmt.Print(err.Error())
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return fmt.Errorf("file name already exists in this location")
+		} else {
+			return err
+		}
 	}
+	return nil
+
 }
 
-func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderName string, uploaderId string) {
+func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderName string, uploaderId string) error {
+	fileExists, err := FileExists(file.Filename, &parentFolderName, &orgId)
+	if err != nil {
+		return err
+	}
+	if fileExists {
+		return fmt.Errorf("file name already exists in this location")
+	}
 	statement, err := dbClient.Prepare(`
 	 	INSERT INTO file (org_id, uploader_id, name, type, size, folder_id)
 		VALUES (?, ?, ?, ?, ?, (SELECT id FROM folder WHERE name = ? AND org_id = ?))
@@ -38,8 +60,13 @@ func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderNa
 
 	_, err = statement.Exec(orgId, uploaderId, file.Filename, filepath.Ext(file.Filename), file.Size, parentFolderName, orgId)
 	if err != nil {
-		fmt.Print(err.Error())
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return fmt.Errorf("file name already exists in this location")
+		} else {
+			return err
+		}
 	}
+	return nil
 }
 
 func GetRootFilesOfOrg(orgId string) []FileData {
@@ -127,4 +154,65 @@ func GetFolderFiles(folderName string, orgId string) []FileData {
 	}
 
 	return files
+}
+
+func FileExists(fileName string, folderName *string, orgId *string) (bool, error) {
+	if folderName == nil {
+		statement, err := dbClient.Prepare("SELECT COUNT(id) FROM file WHERE name = ? AND folder_id IS NULL")
+		if err != nil {
+			return true, err
+		}
+		defer statement.Close()
+		result := statement.QueryRow(fileName)
+		var count int
+		err = result.Scan(&count)
+		if err != nil {
+			return true, err
+		}
+		if count == 0 {
+			return false, nil
+		} else {
+			return true, nil
+		}
+
+	} else {
+		statement, err := dbClient.Prepare("SELECT COUNT(id) FROM file WHERE name = ? AND folder_id = (SELECT id FROM folder WHERE name = ? AND org_id = ?)")
+		if err != nil {
+			return true, err
+		}
+		defer statement.Close()
+		result := statement.QueryRow(fileName, folderName, orgId)
+		var count int
+		err = result.Scan(&count)
+		if err != nil {
+			return true, err
+		}
+		if count == 0 {
+			return false, nil
+		} else {
+			return true, nil
+		}
+	}
+}
+
+func DeleteFile(fileId string) error {
+	statement, err := dbClient.Prepare("DELETE FROM file WHERE id = ?")
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(fileId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("something went wrong")
+	}
+	return nil
 }

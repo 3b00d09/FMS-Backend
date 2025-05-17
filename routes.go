@@ -54,6 +54,8 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/view-folder-children", handlers.HandleViewFolderChildren)
 	app.Post("/add-folder", handlers.HandleCreateFolder)
 	app.Post("/add-file", handlers.HandleUploadFile)
+	app.Delete("/delete-file", handlers.HandleDeleteFile)
+	app.Delete("/delete-folder", handlers.HandleDeleteFolder)
 
 	// user-related routes
 	app.Get("/view-user-orgs", handlers.HandleViewUserOrgs)

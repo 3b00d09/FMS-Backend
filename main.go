@@ -34,8 +34,11 @@ func main() {
 	database.ConnectDatabase(dbURL, dbToken)
 
 	// create a fiber app
+	// body limit automatically rejects requests that exceed the defined limit
+	// the response is HTTP 413
+	// format is mb * 1024 * 1024
 	app := fiber.New(fiber.Config{
-		BodyLimit: 50 * 1024 * 1024,
+		BodyLimit: 10 * 1024 * 1024,
 	})
 
 	// setup the endpoints for the app

@@ -2,7 +2,8 @@ package handlers
 
 import (
 	"fms/database"
-	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -27,7 +28,6 @@ func HandleCreateFolder(c fiber.Ctx) error {
 
 	err = c.Bind().Body(&addFolderData)
 	if err != nil {
-		fmt.Println(err.Error())
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"message": "Internal server error.",
 		})
@@ -43,19 +43,32 @@ func HandleCreateFolder(c fiber.Ctx) error {
 		})
 	}
 
-	_, role, err := database.CanViewOrg(userWithSession.User.ID, addFolderData.Org_id)
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   true,
-			"message": err.Error(),
+	// check if folder name is empty after trimming
+	if strings.TrimSpace(addFolderData.Name) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Folder name cannot be empty",
 		})
 	}
 
-	if strings.ToLower(role) != "owner" && strings.ToLower(role) != "editor" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   true,
-			"message": "You do not have permissions to carry out this operation",
+	// check for invalid characters using regex
+	invalidChars := regexp.MustCompile(`[<>:"/\\|?*]`)
+	if invalidChars.MatchString(addFolderData.Name) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Folder name contains invalid characters",
+		})
+	}
+
+	// check if folder name is "root" (case insensitive)
+	if strings.ToLower(addFolderData.Name) == "root" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Folder name cannot be root",
+		})
+	}
+
+	// check if folder name is too long
+	if len(addFolderData.Name) > 255 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "Folder name is too long",
 		})
 	}
 
@@ -67,9 +80,32 @@ func HandleCreateFolder(c fiber.Ctx) error {
 		})
 	}
 
+	if addFolderData.Name == parentFolderName {
+		return c.SendStatus(fiber.StatusConflict)
+	}
+
+	_, role, err := database.CanViewOrg(userWithSession.User.ID, addFolderData.Org_id)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": err.Error(),
+		})
+	}
+
+	if strings.ToLower(role) != "owner" && strings.ToLower(role) != "editor" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   true,
+			"message": "You do not have permissions to carry out this operation",
+		})
+	}
+
 	if parentFolderName == "root" {
 		err = database.CreateFolder(userWithSession.User.ID, addFolderData.Name, addFolderData.Org_id)
 		if err != nil {
+			if strings.Contains(err.Error(), "exists") {
+				return c.SendStatus(fiber.StatusConflict)
+			}
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -77,13 +113,16 @@ func HandleCreateFolder(c fiber.Ctx) error {
 	} else {
 		err = database.CreateFolderAsChild(userWithSession.User.ID, addFolderData.Name, addFolderData.Org_id, parentFolderName)
 		if err != nil {
+			if strings.Contains(err.Error(), "exists") {
+				return c.SendStatus(fiber.StatusConflict)
+			}
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
 			})
 		}
 	}
 
-	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": "true",
 	})
 
@@ -164,6 +203,55 @@ func HandleUploadFile(c fiber.Ctx) error {
 		})
 	}
 
+	// map that holds allowed file types
+	allowedFileTypes := map[string]bool{
+		"application/pdf":    true,
+		"application/msword": true,
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+		"image/jpeg": true,
+		"image/png":  true,
+	}
+	// get file extension and check if it's allowed
+	fileExt := filepath.Ext(file.Filename)
+	contentType := ""
+
+	// map common extensions to MIME types
+	switch strings.ToLower(fileExt) {
+	case ".pdf":
+		contentType = "application/pdf"
+	case ".doc":
+		contentType = "application/msword"
+	case ".docx":
+		contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".jpg", ".jpeg":
+		contentType = "image/jpeg"
+	case ".png":
+		contentType = "image/png"
+	}
+
+	if !allowedFileTypes[contentType] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File type not supported. Please upload PDF, DOC, DOCX, JPG, or PNG files",
+		})
+	}
+
+	// file size validation
+	// 10 (mb) * 1024 * 1024
+	maxFileSize := int64(10 * 1024 * 1024)
+	if file.Size > maxFileSize {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Upload limit exceeded. Maximum file size is 10MB",
+		})
+	}
+
+	// file name validation
+	invalidChars := regexp.MustCompile(`[<>:"/\\|?*]`)
+	if invalidChars.MatchString(file.Filename) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "File name contains invalid characters",
+		})
+	}
+
 	_, role, err := database.CanViewOrg(userWithSession.User.ID, orgId)
 
 	if err != nil {
@@ -174,17 +262,116 @@ func HandleUploadFile(c fiber.Ctx) error {
 	}
 
 	if strings.ToLower(role) != "owner" && strings.ToLower(role) != "editor" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error":   true,
 			"message": "You do not have permissions to carry out this operation",
 		})
 	}
 
 	if parentFolderName == "root" {
-		database.UploadFileToRoot(file, orgId, userWithSession.User.ID)
+		err := database.UploadFileToRoot(file, orgId, userWithSession.User.ID)
+		if err != nil {
+			if strings.Contains(err.Error(), "exists") {
+				return c.SendStatus(fiber.StatusConflict)
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
 	} else {
-		database.UploadFileToFolder(file, orgId, parentFolderName, userWithSession.User.ID)
+		err := database.UploadFileToFolder(file, orgId, parentFolderName, userWithSession.User.ID)
+		if err != nil {
+			if strings.Contains(err.Error(), "exists") {
+				return c.SendStatus(fiber.StatusConflict)
+			}
+
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
 	}
 
-	return c.SendStatus(fiber.StatusAccepted)
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func HandleDeleteFile(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	orgId := c.Query("org-id")
+	fileId := c.Query("file-id")
+
+	if len(orgId) == 0 || len(fileId) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing required form data",
+		})
+	}
+
+	_, role, err := database.CanViewOrg(userWithSession.User.ID, orgId)
+
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   true,
+			"message": err.Error(),
+		})
+	}
+
+	if strings.ToLower(role) != "owner" && strings.ToLower(role) != "editor" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   true,
+			"message": "You do not have permissions to carry out this operation",
+		})
+	}
+
+	err = database.DeleteFile(fileId)
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func HandleDeleteFolder(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	orgId := c.Query("org-id")
+	folderId := c.Query("folder-id")
+
+	if len(orgId) == 0 || len(folderId) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing required form data",
+		})
+	}
+
+	_, role, err := database.CanViewOrg(userWithSession.User.ID, orgId)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": err.Error(),
+		})
+	}
+
+	if strings.ToLower(role) != "owner" && strings.ToLower(role) != "editor" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":   true,
+			"message": "You do not have permissions to carry out this operation",
+		})
+	}
+
+	err = database.DeleteFolder(folderId)
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
 }

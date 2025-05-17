@@ -50,6 +50,7 @@ type FolderData struct {
 	Name           string `json:"name"`
 	ParentFolderId *int64 `json:"parentFolderId" `
 	CreatedAt      string `json:"createdAt"`
+	Size           int64  `json:"size"`
 }
 
 type FileData struct {
