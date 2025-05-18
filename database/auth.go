@@ -178,3 +178,22 @@ func InvalidateSession(sessionId string) {
 		fmt.Println(err)
 	}
 }
+
+func GetUsernameById(id string) (string, error) {
+	var username string
+
+	statement, err := dbClient.Prepare("SELECT username FROM user WHERE username =  LIMIT 1)")
+	if err != nil {
+		return username, err
+	}
+
+	defer statement.Close()
+
+	err = statement.QueryRow(username).Scan(&username)
+
+	if err != nil {
+		return username, err
+	}
+
+	return username, nil
+}

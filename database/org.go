@@ -3,6 +3,8 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 )
 
@@ -154,7 +156,7 @@ func GetUserOrg(userId string) *Organisation {
 	return &organisation
 }
 
-func InviteUserToOrg(username string, ownerId string) error {
+func InviteUserToOrg(username string, ownerId string, orgId string) error {
 
 	statement, err := dbClient.Prepare(`
 		INSERT INTO org_invites (org_id, user_id) 
@@ -185,10 +187,27 @@ func InviteUserToOrg(username string, ownerId string) error {
 		return fmt.Errorf("operation failed. Please try again later")
 	}
 
+	rowId, err := result.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the operation itself worked
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(rowId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, ownerId, "invite", "Has been invited to join", payloadID, username)
+	if err != nil {
+		log.Printf("error: could not send out notification to join org: %v", err.Error())
+	}
+
 	return nil
+
 }
 
-func AddMemberToOrg(userId string, orgId string) error {
+func AddMemberToOrg(userId string, orgId string, username string) error {
 	statement, err := dbClient.Prepare("INSERT INTO org_members (org_id, user_id, role) VALUES (?, ?, 'Editor')")
 	if err != nil {
 		return err
@@ -210,6 +229,23 @@ func AddMemberToOrg(userId string, orgId string) error {
 	if rowsAffected == 0 {
 		return fmt.Errorf("operation failed. Please try again later")
 	}
+	// get the file id of the inserted row
+	rowId, err := result.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the operation itself worked
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(rowId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "join org", "Is now a member of", payloadID, username)
+	if err != nil {
+		log.Printf("error: could not send out notification to join org: %v", err.Error())
+	}
+
 	return nil
 }
 
@@ -288,7 +324,7 @@ func GetJoinedOrgs(userId string) []*JoinedOrganisation {
 	return organisations
 }
 
-func ChangeOrgName(orgId string, orgName string) error {
+func ChangeOrgName(orgId string, orgName string, userId string) error {
 	statement, err := dbClient.Prepare("UPDATE organisation SET name = ? WHERE id = ?")
 
 	if err != nil {
@@ -310,6 +346,12 @@ func ChangeOrgName(orgId string, orgName string) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("unable to update name. please try again later")
+	}
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "org name", "Changed Org Name To", orgId, orgName)
+	if err != nil {
+		log.Printf("error: could not send out notification for org name change: %v", err.Error())
 	}
 
 	return nil

@@ -303,8 +303,9 @@ func HandleDeleteFile(c fiber.Ctx) error {
 
 	orgId := c.Query("org-id")
 	fileId := c.Query("file-id")
+	fileName := c.Query("file-name")
 
-	if len(orgId) == 0 || len(fileId) == 0 {
+	if len(orgId) == 0 || len(fileId) == 0 || len(fileName) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Missing required form data",
 		})
@@ -326,7 +327,7 @@ func HandleDeleteFile(c fiber.Ctx) error {
 		})
 	}
 
-	err = database.DeleteFile(fileId)
+	err = database.DeleteFile(fileId, orgId, userWithSession.User.ID, fileName)
 
 	if err != nil {
 		return c.SendStatus(fiber.StatusInternalServerError)
@@ -344,8 +345,9 @@ func HandleDeleteFolder(c fiber.Ctx) error {
 
 	orgId := c.Query("org-id")
 	folderId := c.Query("folder-id")
+	folderName := c.Query("folder-name")
 
-	if len(orgId) == 0 || len(folderId) == 0 {
+	if len(orgId) == 0 || len(folderId) == 0 || len(folderName) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Missing required form data",
 		})
@@ -367,7 +369,7 @@ func HandleDeleteFolder(c fiber.Ctx) error {
 		})
 	}
 
-	err = database.DeleteFolder(folderId)
+	err = database.DeleteFolder(folderId, userWithSession.User.ID, orgId, folderName)
 
 	if err != nil {
 		return c.SendStatus(fiber.StatusInternalServerError)

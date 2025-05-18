@@ -71,3 +71,14 @@ type OrgInvite struct {
 	OrgName   string `json:"orgName"`
 	InvitedAt string `json:"invitedAt"`
 }
+
+type Notification struct {
+	ID            int    `json:"id"`
+	OrgName       string `json:"orgName"`
+	ActorUsername string `json:"actorName"`
+	Message       string `json:"message"`
+	NotifType     string `json:"notifType"`
+	Payload_name  string `json:"payloadName"`
+	IsRead        bool   `json:"isRead"`
+	CreatedAt     string `json:"createdAt"`
+}

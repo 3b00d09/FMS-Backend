@@ -63,4 +63,6 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/user-invites", handlers.HandleGetUserInvites)
 	app.Get("/accept-invite", handlers.HandleAcceptInvite)
 	app.Get("/decline-invite", handlers.HandleDeclineInvite)
+	app.Get("notifications", handlers.HandleGetUserNotifications)
+	app.Get("/read-notification", handlers.HandleMarkNotificationAsRead)
 }

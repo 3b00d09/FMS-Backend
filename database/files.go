@@ -2,8 +2,10 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"mime/multipart"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -27,7 +29,7 @@ func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId strin
 
 	defer statement.Close()
 
-	_, err = statement.Exec(orgId, uploaderId, file.Filename, filepath.Ext(file.Filename), file.Size)
+	res, err := statement.Exec(orgId, uploaderId, file.Filename, filepath.Ext(file.Filename), file.Size)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return fmt.Errorf("file name already exists in this location")
@@ -35,6 +37,24 @@ func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId strin
 			return err
 		}
 	}
+
+	// get the file id of the inserted row
+	fileId, err := res.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the file itself got uploaded
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(fileId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, uploaderId, "file upload", "Uploaded a file to", payloadID, file.Filename)
+	if err != nil {
+		log.Printf("error: could not send out notification to file upload: %v", err.Error())
+	}
+
 	return nil
 
 }
@@ -58,7 +78,7 @@ func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderNa
 
 	defer statement.Close()
 
-	_, err = statement.Exec(orgId, uploaderId, file.Filename, filepath.Ext(file.Filename), file.Size, parentFolderName, orgId)
+	res, err := statement.Exec(orgId, uploaderId, file.Filename, filepath.Ext(file.Filename), file.Size, parentFolderName, orgId)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return fmt.Errorf("file name already exists in this location")
@@ -66,6 +86,24 @@ func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderNa
 			return err
 		}
 	}
+
+	// get the file id of the inserted row
+	fileId, err := res.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the file itself got uploaded
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(fileId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, uploaderId, "file upload", "Uploaded a file to", payloadID, file.Filename)
+	if err != nil {
+		log.Printf("error: could not send out notification to file upload: %v", err.Error())
+	}
+
 	return nil
 }
 
@@ -195,7 +233,7 @@ func FileExists(fileName string, folderName *string, orgId *string) (bool, error
 	}
 }
 
-func DeleteFile(fileId string) error {
+func DeleteFile(fileId string, orgId string, userId string, fileName string) error {
 	statement, err := dbClient.Prepare("DELETE FROM file WHERE id = ?")
 	if err != nil {
 		return err
@@ -213,6 +251,12 @@ func DeleteFile(fileId string) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("something went wrong")
+	}
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "file delete", "Delete a file from", fileId, fileName)
+	if err != nil {
+		log.Printf("error: could not send out notification to file delete: %v", err.Error())
 	}
 	return nil
 }

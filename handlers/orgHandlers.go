@@ -80,7 +80,7 @@ func HandleChangeOrgName(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusForbidden)
 	}
 
-	err = database.ChangeOrgName(orgId, orgName)
+	err = database.ChangeOrgName(orgId, orgName, userWithSession.User.ID)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

@@ -1,6 +1,10 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"strconv"
+)
 
 func CreateFolder(userId string, folderName string, orgId string) error {
 	folderExists, err := FolderExists(folderName, nil, orgId)
@@ -18,10 +22,27 @@ func CreateFolder(userId string, folderName string, orgId string) error {
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(orgId, userId, folderName)
+	res, err := statement.Exec(orgId, userId, folderName)
 
 	if err != nil {
 		return err
+	}
+
+	// get the folder id of the inserted row
+	folderId, err := res.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the file itself got uploaded
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(folderId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "folder upload", "Uploaded a folder to", payloadID, folderName)
+	if err != nil {
+		log.Printf("error: could not send out notification to upload folder: %v", err.Error())
 	}
 
 	return nil
@@ -48,10 +69,28 @@ func CreateFolderAsChild(userId string, folderName string, orgId string, parentF
 
 	defer statement.Close()
 
-	_, err = statement.Exec(orgId, userId, folderName, parentFolderName, orgId)
+	res, err := statement.Exec(orgId, userId, folderName, parentFolderName, orgId)
 	if err != nil {
 		fmt.Print(err.Error())
 	}
+
+	// get the file id of the inserted row
+	folderId, err := res.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the file itself got uploaded
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(folderId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "folder upload", "Uploaded a folder to", payloadID, folderName)
+	if err != nil {
+		log.Printf("error: could not send out notification to upload folder: %v", err.Error())
+	}
+
 	return nil
 }
 
@@ -164,7 +203,7 @@ func GetFolderChildren(folderName string, orgId string) []FolderData {
 	return folders
 }
 
-func DeleteFolder(folderId string) error {
+func DeleteFolder(folderId string, userId string, orgId string, folderName string) error {
 	statement, err := dbClient.Prepare("DELETE FROM folder WHERE id = ?")
 	if err != nil {
 		return err
@@ -183,6 +222,13 @@ func DeleteFolder(folderId string) error {
 	if rowsAffected == 0 {
 		return fmt.Errorf("something went wrong")
 	}
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "folder delete", "Deleted a folder from", folderId, folderName)
+	if err != nil {
+		log.Printf("error: could not send out notification to delete folder: %v", err.Error())
+	}
+
 	return nil
 }
 

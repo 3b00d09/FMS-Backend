@@ -2,6 +2,8 @@ package database
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"time"
 )
 
@@ -115,8 +117,8 @@ func GetUserInvites(userId string) ([]OrgInvite, error) {
 	return invites, nil
 }
 
-func AcceptOrgInvite(userId string, orgId string) error {
-	statement, err := dbClient.Prepare("UPDATE org_invites SET status = 'accepted' WHERE org_id = ? AND user_id = ?")
+func AcceptOrgInvite(userId string, orgId string, username string) error {
+	statement, err := dbClient.Prepare("DELETE FROM org_invites WHERE org_id = ? AND user_id = ?")
 	if err != nil {
 		return err
 	}
@@ -139,7 +141,7 @@ func AcceptOrgInvite(userId string, orgId string) error {
 		return fmt.Errorf("operation failed. Please try again later")
 	}
 
-	err = AddMemberToOrg(userId, orgId)
+	err = AddMemberToOrg(userId, orgId, username)
 
 	if err != nil {
 		return err
@@ -148,8 +150,8 @@ func AcceptOrgInvite(userId string, orgId string) error {
 	return nil
 }
 
-func DeclineOrgInvite(userId string, orgId string) error {
-	statement, err := dbClient.Prepare("UPDATE org_invites SET status = 'declined' WHERE org_id = ? AND user_id = ?")
+func DeclineOrgInvite(userId string, orgId string, username string) error {
+	statement, err := dbClient.Prepare("DELETE FROM org_invites WHERE org_id = ? AND user_id = ?")
 	if err != nil {
 		return err
 	}
@@ -172,5 +174,41 @@ func DeclineOrgInvite(userId string, orgId string) error {
 		return fmt.Errorf("operation failed. Please try again later")
 	}
 
+	rowId, err := result.LastInsertId()
+
+	// don't want the upload function to error out if we are unable to send out a notification because the operation itself worked
+	if err != nil {
+		log.Printf("error: could not read file ID: %v", err.Error())
+	}
+
+	// convert the id to a string
+	payloadID := strconv.FormatInt(rowId, 10)
+
+	// send notification to all org members + org owner if applicable
+	err = SendNotificationToOrgMembers(orgId, userId, "decline invite", "Declined Invite to join", payloadID, username)
+	if err != nil {
+		log.Printf("error: could not send out notification to decline invite: %v", err.Error())
+	}
 	return nil
+}
+
+func HasExceededLimit(userId string) (bool, error) {
+	statement, err := dbClient.Prepare("SELECT COUNT FROM org_members WHERE user_id = ?")
+
+	if err != nil {
+		return true, err
+	}
+
+	defer statement.Close()
+
+	var count int
+
+	err = statement.QueryRow(userId).Scan(&count)
+
+	if err != nil {
+		return true, err
+	}
+
+	return count < 3, nil
+
 }
