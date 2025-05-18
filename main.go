@@ -36,7 +36,7 @@ func main() {
 	// create a fiber app
 	// body limit automatically rejects requests that exceed the defined limit
 	// the response is HTTP 413
-	// format is mb * 1024 * 1024
+	// format is mb * 1024 * 10
 	app := fiber.New(fiber.Config{
 		BodyLimit: 10 * 1024 * 1024,
 	})
