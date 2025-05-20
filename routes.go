@@ -20,10 +20,8 @@ func SetupRoutes(app *fiber.App) {
 	// even though cloudflare seems to handle redirects, can never be too safe
 	// middleware to force https
 	app.Use(func(c fiber.Ctx) error {
-		// Cloudflare sets this header for you
 		if c.Get("X-Forwarded-Proto") != "https" {
 			redirectURL := "https://" + c.Hostname() + c.OriginalURL()
-			// Build a 301 redirect and return its error
 			return c.
 				Redirect().
 				Status(fiber.StatusMovedPermanently).
@@ -49,6 +47,9 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/view-org-members", handlers.HandleViewOrgMembers)
 	app.Get("/invite-user", handlers.HandleInviteUser)
 	app.Put("/change-org-name", handlers.HandleChangeOrgName)
+	app.Put("/update-member-role", handlers.HandleChangeMemberRole)
+	app.Delete("/remove-member", handlers.HandleRemoveMember)
+	app.Delete("/delete-org", handlers.HandleDeleteOrg)
 
 	// folder-related routes
 	app.Get("/view-folder-children", handlers.HandleViewFolderChildren)
@@ -56,6 +57,7 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/add-file", handlers.HandleUploadFile)
 	app.Delete("/delete-file", handlers.HandleDeleteFile)
 	app.Delete("/delete-folder", handlers.HandleDeleteFolder)
+	app.Get("/download-file", handlers.HandleDownloadFile)
 
 	// user-related routes
 	app.Get("/view-user-orgs", handlers.HandleViewUserOrgs)
@@ -65,4 +67,7 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/decline-invite", handlers.HandleDeclineInvite)
 	app.Get("notifications", handlers.HandleGetUserNotifications)
 	app.Get("/read-notification", handlers.HandleMarkNotificationAsRead)
+	app.Post("/change-password", handlers.HandleChangePassword)
+	app.Post("/change-username", handlers.HandleChangeUsername)
+	app.Delete("/delete-account", handlers.HandleDeleteAccount)
 }

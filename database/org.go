@@ -2,18 +2,36 @@ package database
 
 import (
 	"database/sql"
+	"fms/ioOperations"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 )
 
-func CreateOrg(userId string, orgName string) error {
+func CreateOrg(userId string, orgName string) (int64, error) {
 
-	// first the server must verify that the user does not already have an org created
-	statement, err := dbClient.Prepare("SELECT id FROM organisation WHERE creator_id = ?")
+	// do a case insensitive lookup for the org name to see if its taken or not (Org and ORG go through the unique constraint)
+	statement, err := dbClient.Prepare("SELECT EXISTS(SELECT name FROM organisation WHERE name LIKE ? COLLATE NOCASE)")
 	if err != nil {
-		return err
+		return 0, err
+	}
+
+	var exists bool
+
+	err = statement.QueryRow(orgName).Scan(&exists)
+	if err != nil {
+		return 0, err
+	}
+
+	if exists {
+		return 0, fmt.Errorf("organisation with this name already exists")
+	}
+
+	// verify that the user does not already have an org created
+	statement, err = dbClient.Prepare("SELECT id FROM organisation WHERE creator_id = ?")
+	if err != nil {
+		return 0, err
 	}
 
 	defer statement.Close()
@@ -28,33 +46,60 @@ func CreateOrg(userId string, orgName string) error {
 	// server catches this error to prevent an early exit from the function
 	if err != nil {
 		if err != sql.ErrNoRows {
-			return err
+			return 0, err
 		}
 	}
 
 	// if an orgid exists, an org exists, therefore the server returns an error
 	if len(orgId) != 0 {
-		return fmt.Errorf("org limit exceeded. Users are only allowed to create one Org")
+		return 0, fmt.Errorf("org limit exceeded. Users are only allowed to create one Org")
 	}
 
+	// THIS MUST BE A TRANSACTION SO IF FOLDER CREATION FAILS WE REVERT THE ORG CREATION
 	// org does not exist and the server can create one for the user
-	statement, err = dbClient.Prepare("INSERT INTO organisation (name, creator_id) VALUES (?, ?)")
+	tx, err := dbClient.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	defer tx.Rollback()
+	statement, err = tx.Prepare("INSERT INTO organisation (name, creator_id) VALUES (?, ?)")
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	_, err = statement.Exec(orgName, userId)
+	result, err := statement.Exec(orgName, userId)
 
 	if err != nil {
 		// if org name is taken
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return fmt.Errorf("organization with this name already exists")
+			return 0, fmt.Errorf("organization with this name already exists")
 		}
-		return err
+		return 0, err
 	}
 
-	return nil
+	rowId, err := result.LastInsertId()
+
+	if err != nil {
+		return 0, fmt.Errorf("unknown error occured")
+	}
+
+	// attempt to create a directory for the org
+	err = ioOperations.CreateOrgDir(strconv.FormatInt(rowId, 10))
+
+	if err != nil {
+		return 0, nil
+	}
+
+	// commit the tx if the directory was created successfully
+	// the tx will rollback by itself because we have defer rolleback so if at any time the function returns before we commit, the tx is rolled back
+	err = tx.Commit()
+	if err != nil {
+		return 0, err
+	}
+
+	return rowId, nil
 
 }
 
@@ -352,6 +397,99 @@ func ChangeOrgName(orgId string, orgName string, userId string) error {
 	err = SendNotificationToOrgMembers(orgId, userId, "org name", "Changed Org Name To", orgId, orgName)
 	if err != nil {
 		log.Printf("error: could not send out notification for org name change: %v", err.Error())
+	}
+
+	return nil
+}
+
+func ChangeOrgMemberRole(userId string, memberUsername string, newRole string) error {
+	statement, err := dbClient.Prepare("UPDATE org_members SET role = ? WHERE user_id = (SELECT id FROM user WHERE username = ?) AND org_id = (SELECT id FROM organisation WHERE creator_id = ?)")
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(newRole, memberUsername, userId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("something went wrong. please try again later")
+	}
+
+	return nil
+}
+
+func RemoveOrgMember(userId string, memberUsername string) error {
+	statement, err := dbClient.Prepare("DELETE FROM org_members WHERE user_id = (SELECT id FROM user WHERE username = ?) AND org_id = (SELECT id FROM organisation WHERE creator_id = ?)")
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(memberUsername, userId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("something went wrong. please try again later")
+	}
+
+	return nil
+}
+
+func DeleteOrg(orgId string) error {
+
+	statement, err := dbClient.Prepare("DELETE FROM organisation WHERE id = ?")
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(orgId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("organisation not found or already deleted")
+	}
+
+	// attempt to remove the org's directory
+	err = ioOperations.DeleteOrgDir(orgId)
+	if err != nil {
+		// don't have to abort the entire function, the database operation can still go through even if folder delete was a fail
+		// folder cleanup can happen but database clean up is not ideal as it directly interacts with the user and can be misleading
+		log.Printf("ERROR: FAILED TO OS DELETE ORG WITH ID %v %s \n", orgId, err.Error())
 	}
 
 	return nil

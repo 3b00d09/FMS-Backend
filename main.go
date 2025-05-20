@@ -14,7 +14,8 @@ const port string = ":8443"
 
 func main() {
 
-	// NEED TO REDO SO THE FRONTEND KNOWS THE DATABASE IS DEAD WITHOUT KILLING ENTIRE SERVER
+	// server should not run if ENV does not exist
+	// instead we get logging and we can track what went wrong and fix it
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file" + err.Error())

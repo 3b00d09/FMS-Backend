@@ -2,6 +2,11 @@ package handlers
 
 import (
 	"fms/database"
+	"fms/ioOperations"
+	"fmt"
+	"log"
+	"mime"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -50,11 +55,10 @@ func HandleCreateFolder(c fiber.Ctx) error {
 		})
 	}
 
-	// check for invalid characters using regex
-	invalidChars := regexp.MustCompile(`[<>:"/\\|?*]`)
-	if invalidChars.MatchString(addFolderData.Name) {
+	// check that folder name contains only alphanumeric characters
+	if !regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(addFolderData.Name) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Folder name contains invalid characters",
+			"message": "Folder name must contain only alphanumeric characters",
 		})
 	}
 
@@ -66,9 +70,9 @@ func HandleCreateFolder(c fiber.Ctx) error {
 	}
 
 	// check if folder name is too long
-	if len(addFolderData.Name) > 255 {
+	if len(addFolderData.Name) > 13 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Folder name is too long",
+			"message": "Folder name is too long. Max length is 13 characters",
 		})
 	}
 
@@ -376,4 +380,83 @@ func HandleDeleteFolder(c fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusOK)
+}
+
+func HandleDownloadFile(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	orgId := c.Query("org-id")
+	fileId := c.Query("file-id")
+	fileType := c.Query("file-type")
+	if len(orgId) == 0 || len(fileId) == 0 || len(fileType) == 0 {
+		return c.SendStatus(fiber.StatusUnprocessableEntity)
+	}
+
+	// if the file name was not able to be decoded then we fallback to "download"
+	// some files have special but not illegal characters that can cause issues if not encoded then decoded
+	fileName, err := url.QueryUnescape(c.Query("file-name"))
+	if err != nil {
+		log.Printf("Error decoding filename: %v", err)
+		fileName = "download"
+	}
+
+	// verify that the user has permission to download this file
+	_, _, err = database.CanViewOrg(userWithSession.User.ID, orgId)
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusForbidden)
+	}
+
+	// get filepath from this function that walks the database table and collects folder-ids until it hits null which is root level
+	filePath, err := database.GetFilePath(fileId)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	// check that the file actually exists on disk
+	err = ioOperations.FileExists(filePath)
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusNotFound)
+	}
+
+	// set the response headers to tell the browser to initiate a download operation
+	encodedFilename := mime.QEncoding.Encode("utf-8", fileName)
+	c.Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, encodedFilename, url.PathEscape(fileName)))
+	// parse the mime type of the file based on the type
+	c.Set("Content-Type", getMimeType(fileType))
+	return c.SendFile(filePath)
+
+}
+
+func getMimeType(fileType string) string {
+	// Remove the dot if present
+	// client does this already but you can never be too safe
+	fileType = strings.TrimPrefix(fileType, ".")
+
+	switch strings.ToLower(fileType) {
+	case "pdf":
+		return "application/pdf"
+	case "txt":
+		return "text/plain"
+	case "png":
+		return "image/png"
+	case "jpg", "jpeg":
+		return "image/jpeg"
+	case "gif":
+		return "image/gif"
+	case "svg":
+		return "image/svg+xml"
+	case "doc", "docx":
+		return "application/msword"
+	case "xls", "xlsx":
+		return "application/vnd.ms-excel"
+	default:
+		// default binary mime type
+		return "application/octet-stream"
+	}
 }

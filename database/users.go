@@ -193,7 +193,7 @@ func DeclineOrgInvite(userId string, orgId string, username string) error {
 }
 
 func HasExceededLimit(userId string) (bool, error) {
-	statement, err := dbClient.Prepare("SELECT COUNT FROM org_members WHERE user_id = ?")
+	statement, err := dbClient.Prepare("SELECT COUNT(id) FROM org_members WHERE user_id = ?")
 
 	if err != nil {
 		return true, err
@@ -209,6 +209,6 @@ func HasExceededLimit(userId string) (bool, error) {
 		return true, err
 	}
 
-	return count < 3, nil
+	return count > 3, nil
 
 }

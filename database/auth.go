@@ -197,3 +197,87 @@ func GetUsernameById(id string) (string, error) {
 
 	return username, nil
 }
+
+func ChangePassword(userId string, password string) error {
+	statement, err := dbClient.Prepare("UPDATE user SET password = ? WHERE id = ?")
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	hashedPassword := auth.GenerateHashedPassword(password)
+
+	result, err := statement.Exec(hashedPassword, userId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("could not update password. please try again later or contact support")
+	}
+
+	return nil
+
+}
+
+func ChangeUsername(userId string, username string) error {
+	statement, err := dbClient.Prepare("UPDATE user SET username = ? WHERE id = ?")
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(username, userId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("could not update username. please try again later or contact support")
+	}
+
+	return nil
+}
+
+func DeleteAccount(userId string) error {
+	statement, err := dbClient.Prepare("DELETE FROM user WHERE id = ?")
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(userId)
+
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("could not delete account. please try again later or contact support")
+	}
+
+	return nil
+}

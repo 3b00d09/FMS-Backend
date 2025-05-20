@@ -1,6 +1,8 @@
 package database
 
 import (
+	"database/sql"
+	"fms/ioOperations"
 	"fmt"
 	"log"
 	"mime/multipart"
@@ -18,7 +20,14 @@ func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId strin
 		return fmt.Errorf("file name already exists in this location")
 	}
 
-	statement, err := dbClient.Prepare(`
+	tx, err := dbClient.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	statement, err := tx.Prepare(`
 	 	INSERT INTO file (org_id, uploader_id, name, type, size)
 		VALUES (?, ?, ?, ?, ?)
 	 `)
@@ -49,6 +58,13 @@ func UploadFileToRoot(file *multipart.FileHeader, orgId string, uploaderId strin
 	// convert the id to a string
 	payloadID := strconv.FormatInt(fileId, 10)
 
+	err = ioOperations.CreateOrgFileAtRoot(file, payloadID, orgId)
+	if err != nil {
+		log.Printf("ERROR CREATING FILE WITH ID: %v ORG ID %s, error: %s", fileId, orgId, err.Error())
+		return err
+	}
+
+	tx.Commit()
 	// send notification to all org members + org owner if applicable
 	err = SendNotificationToOrgMembers(orgId, uploaderId, "file upload", "Uploaded a file to", payloadID, file.Filename)
 	if err != nil {
@@ -67,13 +83,37 @@ func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderNa
 	if fileExists {
 		return fmt.Errorf("file name already exists in this location")
 	}
-	statement, err := dbClient.Prepare(`
+
+	//  get the folder ID so we can find its path
+	var folderId string
+	err = dbClient.QueryRow("SELECT id FROM folder WHERE name = ? AND org_id = ?", parentFolderName, orgId).Scan(&folderId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("folder not found")
+		}
+		return err
+	}
+
+	// get the folder path
+	folderPath, err := getFolderPath(folderId)
+	if err != nil {
+		return fmt.Errorf("error getting folder path: %w", err)
+	}
+
+	tx, err := dbClient.Begin()
+
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+	statement, err := tx.Prepare(`
 	 	INSERT INTO file (org_id, uploader_id, name, type, size, folder_id)
 		VALUES (?, ?, ?, ?, ?, (SELECT id FROM folder WHERE name = ? AND org_id = ?))
 	 `)
 
 	if err != nil {
-		fmt.Print(err.Error())
+		return err
 	}
 
 	defer statement.Close()
@@ -98,6 +138,13 @@ func UploadFileToFolder(file *multipart.FileHeader, orgId string, parentFolderNa
 	// convert the id to a string
 	payloadID := strconv.FormatInt(fileId, 10)
 
+	err = ioOperations.CreateOrgFileAsChild(file, payloadID, folderPath)
+	if err != nil {
+		log.Printf("ERROR CREATING FILE ID %s, error: %s", payloadID, err.Error())
+		return err
+	}
+
+	tx.Commit()
 	// send notification to all org members + org owner if applicable
 	err = SendNotificationToOrgMembers(orgId, uploaderId, "file upload", "Uploaded a file to", payloadID, file.Filename)
 	if err != nil {
@@ -234,6 +281,11 @@ func FileExists(fileName string, folderName *string, orgId *string) (bool, error
 }
 
 func DeleteFile(fileId string, orgId string, userId string, fileName string) error {
+	path, err := GetFilePath(fileId)
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	statement, err := dbClient.Prepare("DELETE FROM file WHERE id = ?")
 	if err != nil {
 		return err
@@ -253,10 +305,51 @@ func DeleteFile(fileId string, orgId string, userId string, fileName string) err
 		return fmt.Errorf("something went wrong")
 	}
 
+	err = ioOperations.DeleteOrgChildFile(path)
+	if err != nil {
+		fmt.Printf("ERROR REMOVING FILE WITH ID: %v\n", fileId)
+	}
+
 	// send notification to all org members + org owner if applicable
 	err = SendNotificationToOrgMembers(orgId, userId, "file delete", "Delete a file from", fileId, fileName)
 	if err != nil {
 		log.Printf("error: could not send out notification to file delete: %v", err.Error())
 	}
 	return nil
+}
+
+// helper function to get the full path of a folder by recursively finding its parent folders
+func GetFilePath(fileId string) (string, error) {
+	var orgId string
+	var folderId sql.NullString
+
+	statement, err := dbClient.Prepare("SELECT org_id, folder_id FROM file WHERE id = ?")
+	if err != nil {
+		return "", err
+	}
+
+	defer statement.Close()
+
+	err = statement.QueryRow(fileId).Scan(&orgId, &folderId)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("file not found")
+		}
+		return "", err
+	}
+
+	var parentPath string
+	// base case: if the folder has no parent (root level folder)
+	if !folderId.Valid || folderId.String == "" {
+		parentPath = filepath.Join("appdata", fmt.Sprintf("org-%s", orgId))
+	} else {
+		parentPath, err = getFolderPath(folderId.String)
+		if err != nil {
+			return "", fmt.Errorf("error GETTING FOLDER PATH FOR FILE ID: %v: error: %s", fileId, err.Error())
+		}
+	}
+
+	// return the full path
+	return filepath.Join(parentPath, fmt.Sprintf("file-%s", fileId)), nil
 }

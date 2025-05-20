@@ -42,7 +42,7 @@ func HandleAddOrg(c fiber.Ctx) error {
 
 	// attempt to create org in the database
 	// the create org func checks for the constraint that ensures only 1 org can be created by a user
-	err = database.CreateOrg(userWithSession.User.ID, addOrgData.Name)
+	_, err = database.CreateOrg(userWithSession.User.ID, addOrgData.Name)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
 			"error": err.Error(),
@@ -207,4 +207,81 @@ func HandleViewUserOrgs(c fiber.Ctx) error {
 		"joinedOrgs": joinedOrgs,
 		"ownedOrg":   ownedOrg,
 	})
+}
+
+func HandleChangeMemberRole(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	memberUsername := c.Query("username")
+	newRole := c.Query("role")
+
+	if len(newRole) == 0 || (newRole != "Editor" && newRole != "Viewer") {
+		return c.SendStatus(fiber.StatusUnprocessableEntity)
+	}
+
+	if len(memberUsername) == 0 {
+		return c.SendStatus(fiber.StatusUnprocessableEntity)
+	}
+
+	err = database.ChangeOrgMemberRole(userWithSession.User.ID, memberUsername, newRole)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func HandleRemoveMember(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	memberUsername := c.Query("username")
+
+	if len(memberUsername) == 0 {
+		return c.SendStatus(fiber.StatusUnprocessableEntity)
+	}
+
+	err = database.RemoveOrgMember(userWithSession.User.ID, memberUsername)
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+}
+
+func HandleDeleteOrg(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	orgId := database.GetUserOrg(userWithSession.User.ID)
+
+	if orgId == nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	err = database.DeleteOrg(orgId.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+
 }

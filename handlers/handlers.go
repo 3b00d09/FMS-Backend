@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fms/database"
+	"fmt"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -101,6 +102,7 @@ func HandleAcceptInvite(c fiber.Ctx) error {
 	hasExceededLimit, err := database.HasExceededLimit(userWithSession.User.ID)
 
 	if err != nil {
+		fmt.Println(err.Error())
 		return c.SendStatus(fiber.StatusInternalServerError)
 	}
 
@@ -110,6 +112,7 @@ func HandleAcceptInvite(c fiber.Ctx) error {
 
 	err = database.AcceptOrgInvite(userWithSession.User.ID, orgId, userWithSession.User.Username)
 	if err != nil {
+		fmt.Println(err.Error())
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -194,4 +197,85 @@ func HandleMarkNotificationAsRead(c fiber.Ctx) error {
 
 		return c.SendStatus(fiber.StatusOK)
 	}
+}
+
+func HandleChangePassword(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	currPassword := c.FormValue("current-password")
+	newPassword := c.FormValue("new-password")
+	confirmNewPassword := c.FormValue("confirm-new-password")
+
+	if newPassword != confirmNewPassword {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": "Passwords don't match",
+		})
+	}
+
+	// dont care about the return value of this function other than error
+	// if there is no error user exists
+	_, err = database.UserExists(userWithSession.User.Username, currPassword)
+
+	if err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	err = database.ChangePassword(userWithSession.User.ID, newPassword)
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+
+	// if len(registerData.Password) < passwordLengthMin || len(registerData.Password) > passwordLengthMax {
+	// 	return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+	// 		"error": "Password length must be between 6 and 12 characters",
+	// 	})
+	// }
+}
+
+func HandleChangeUsername(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	username := c.FormValue("username")
+
+	if len(username) == 0 {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": "username cannot be empty",
+		})
+	}
+
+	err = database.ChangeUsername(userWithSession.User.ID, username)
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
+
+}
+
+func HandleDeleteAccount(c fiber.Ctx) error {
+	userWithSession, err := database.AuthenticateCookie(c.Cookies("session_token"))
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
+	err = database.DeleteAccount(userWithSession.User.ID)
+
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	return c.SendStatus(fiber.StatusOK)
 }
