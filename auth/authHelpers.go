@@ -20,7 +20,3 @@ func CheckPasswordHash(password string, hash []byte) bool {
 	err := bcrypt.CompareHashAndPassword(hash, []byte(password))
 	return err == nil
 }
-
-func ValidateSession(sessionId string) {
-
-}

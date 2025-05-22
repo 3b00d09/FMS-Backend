@@ -209,6 +209,6 @@ func HasExceededLimit(userId string) (bool, error) {
 		return true, err
 	}
 
-	return count > 3, nil
+	return count >= 3, nil
 
 }

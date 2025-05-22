@@ -34,7 +34,7 @@ func HandleCreateFolder(c fiber.Ctx) error {
 	err = c.Bind().Body(&addFolderData)
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Internal server error.",
+			"error": "Internal server error.",
 		})
 	}
 
@@ -44,35 +44,37 @@ func HandleCreateFolder(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Missing form data.",
+			"error": "Missing form data.",
 		})
 	}
 
+	addFolderData.Name = strings.TrimSpace(addFolderData.Name)
+
 	// check if folder name is empty after trimming
-	if strings.TrimSpace(addFolderData.Name) == "" {
+	if len(addFolderData.Name) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Folder name cannot be empty",
+			"error": "Folder name cannot be empty",
 		})
 	}
 
 	// check that folder name contains only alphanumeric characters
-	if !regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(addFolderData.Name) {
+	if !regexp.MustCompile(`^[a-zA-Z0-9 ]+$`).MatchString(addFolderData.Name) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Folder name must contain only alphanumeric characters",
+			"error": "Folder name must contain only alphanumeric characters",
 		})
 	}
 
 	// check if folder name is "root" (case insensitive)
 	if strings.ToLower(addFolderData.Name) == "root" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Folder name cannot be root",
+			"error": "Folder name cannot be root",
 		})
 	}
 
 	// check if folder name is too long
-	if len(addFolderData.Name) > 13 {
+	if len(addFolderData.Name) > 13 || len(addFolderData.Name) < 3 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Folder name is too long. Max length is 13 characters",
+			"error": "Folder name must be between 3 and 13 characters",
 		})
 	}
 
@@ -80,7 +82,7 @@ func HandleCreateFolder(c fiber.Ctx) error {
 
 	if len(parentFolderName) == 0 {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "Missing parent folder name.",
+			"error": "Missing parent folder name.",
 		})
 	}
 
@@ -92,15 +94,13 @@ func HandleCreateFolder(c fiber.Ctx) error {
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   true,
-			"message": err.Error(),
+			"error": err.Error(),
 		})
 	}
 
 	if strings.ToLower(role) != "owner" && strings.ToLower(role) != "editor" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error":   true,
-			"message": "You do not have permissions to carry out this operation",
+			"error": "You do not have permissions to carry out this operation",
 		})
 	}
 
@@ -126,9 +126,7 @@ func HandleCreateFolder(c fiber.Ctx) error {
 		}
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": "true",
-	})
+	return c.SendStatus(fiber.StatusOK)
 
 }
 
@@ -434,27 +432,21 @@ func HandleDownloadFile(c fiber.Ctx) error {
 }
 
 func getMimeType(fileType string) string {
-	// Remove the dot if present
+	// remove the dot if present
 	// client does this already but you can never be too safe
 	fileType = strings.TrimPrefix(fileType, ".")
 
 	switch strings.ToLower(fileType) {
 	case "pdf":
 		return "application/pdf"
-	case "txt":
-		return "text/plain"
-	case "png":
-		return "image/png"
+	case "doc":
+		return "application/msword"
+	case "docx":
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 	case "jpg", "jpeg":
 		return "image/jpeg"
-	case "gif":
-		return "image/gif"
-	case "svg":
-		return "image/svg+xml"
-	case "doc", "docx":
-		return "application/msword"
-	case "xls", "xlsx":
-		return "application/vnd.ms-excel"
+	case "png":
+		return "image/png"
 	default:
 		// default binary mime type
 		return "application/octet-stream"

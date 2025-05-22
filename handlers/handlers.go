@@ -3,6 +3,7 @@ package handlers
 import (
 	"fms/database"
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -144,7 +145,7 @@ func HandleDeclineInvite(c fiber.Ctx) error {
 		})
 	}
 
-	return c.SendStatus(fiber.StatusAccepted)
+	return c.SendStatus(fiber.StatusOK)
 }
 
 func HandleGetUserNotifications(c fiber.Ctx) error {
@@ -248,6 +249,7 @@ func HandleChangeUsername(c fiber.Ctx) error {
 	}
 
 	username := c.FormValue("username")
+	username = strings.TrimSpace(username)
 
 	if len(username) == 0 {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
@@ -255,6 +257,21 @@ func HandleChangeUsername(c fiber.Ctx) error {
 		})
 	}
 
+	// validate length of input
+	if len(username) < usernameLengthMin || len(username) > usernameLengthMax {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"error": "Username length must be between 6 and 12 characters",
+		})
+	}
+
+	exists, err := database.UsernameExists(username)
+	if err != nil {
+		return c.SendStatus(fiber.StatusInternalServerError)
+	}
+
+	if exists {
+		return c.SendStatus(fiber.StatusConflict)
+	}
 	err = database.ChangeUsername(userWithSession.User.ID, username)
 	if err != nil {
 		return c.SendStatus(fiber.StatusInternalServerError)

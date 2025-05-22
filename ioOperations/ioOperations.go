@@ -8,6 +8,13 @@ import (
 	"path/filepath"
 )
 
+// this file uses mkdirall instead of mkdir because mkdir all creates the necessary parent folders
+// can be handy if the system runs into inconsistences between database and storage data
+// the second argument to mkdirall is the chmod octal value of permissions
+// owner rwx, group rx, public rx
+// https://chmod-calculator.com/
+// go uses new octal notation and 0o755 is the same as 755 in the chmod calculator
+
 // when an org is created, this method creates a fodler for that org at appdata root level
 func CreateOrgDir(orgId string) error {
 	// build the path for the org's folder
@@ -128,10 +135,5 @@ func FileExists(path string) error {
 	if err != nil {
 		return fmt.Errorf("file does not exist: %s", err.Error())
 	}
-	return nil
-}
-
-func RetrieveFile(path string) error {
-	fmt.Println(path)
 	return nil
 }

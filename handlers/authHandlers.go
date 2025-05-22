@@ -7,10 +7,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-var passwordLengthMin = 0
+var passwordLengthMin = 6
 var passwordLengthMax = 12
 
-var usernameLengthMin = 0
+var usernameLengthMin = 6
 var usernameLengthMax = 12
 
 func HandleRegister(c fiber.Ctx) error {

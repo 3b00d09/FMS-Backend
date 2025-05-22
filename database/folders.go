@@ -325,6 +325,7 @@ func FolderExists(folderName string, parentFolderName *string, orgId string) (bo
 }
 
 // helper function to get the full path of a folder by recursively finding its parent folders
+// recursively walks the database collecting all parent folder ids and joining them into one path string
 func getFolderPath(folderId string) (string, error) {
 	var orgId string
 	var parentFolderId sql.NullString

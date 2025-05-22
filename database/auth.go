@@ -53,7 +53,8 @@ func CreateSession(userId string) (UserSession, error) {
 	defer statement.Close()
 
 	sessionId := uuid.New().String()
-	expiresAt := time.Now().Add(3600 * time.Hour * 24 * 7).Unix()
+	// 30 days expiry
+	expiresAt := time.Now().Add(time.Hour * 24 * 30).Unix()
 
 	_, err = statement.Exec(sessionId, userId, expiresAt)
 

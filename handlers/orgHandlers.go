@@ -83,6 +83,10 @@ func HandleChangeOrgName(c fiber.Ctx) error {
 	err = database.ChangeOrgName(orgId, orgName, userWithSession.User.ID)
 
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
+
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
